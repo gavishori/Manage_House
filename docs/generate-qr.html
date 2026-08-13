@@ -15,12 +15,21 @@
     }
     canvas { border-radius: 12px; box-shadow: var(--shadow); background: #fff; margin-bottom: 16px; }
     .qr-actions { display: flex; gap: 10px; justify-content: center; }
+    .car-select {
+      width: 100%; box-sizing: border-box; font-family: inherit; font-size: 14px;
+      padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border);
+      background: var(--surface); color: var(--text); margin-bottom: 12px;
+    }
   </style>
 </head>
 <body>
   <div class="qr-wrap">
     <h1 class="dash-title">קוד ה-QR של מודעת הרכב</h1>
     <p class="dash-subtitle">הקוד מצביע לכתובת ההפניה המתועדת (לא ישירות ל-yad2), כדי שכל סריקה תיספר.</p>
+    <select class="car-select" id="carSelect">
+      <option value="go/">BYD</option>
+      <option value="go/honda/">הונדה</option>
+    </select>
     <input class="qr-url-input" id="targetUrl" type="text" value="" />
     <div id="canvasHolder"></div>
     <div class="qr-actions">
@@ -35,9 +44,16 @@
     const holder = document.getElementById("canvasHolder");
     const regenBtn = document.getElementById("regenBtn");
     const downloadBtn = document.getElementById("downloadBtn");
+    const carSelect = document.getElementById("carSelect");
+
+    function applyCarSelection() {
+      input.value = new URL(carSelect.value, window.location.href).toString();
+      render();
+    }
 
     // Default: the /go/ redirect+counter page, on whatever host this file is served from.
-    input.value = new URL("go/", window.location.href).toString();
+    input.value = new URL(carSelect.value, window.location.href).toString();
+    carSelect.addEventListener("change", applyCarSelection);
 
     let currentCanvas = null;
 

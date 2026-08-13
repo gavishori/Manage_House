@@ -12,9 +12,11 @@ import {
 
 const col = collection(db, "carQrScans");
 const DEVICE_CATEGORIES = ["נייד", "טאבלט", "מחשב"];
+const LISTING_LABELS = { byd: "BYD", honda: "הונדה" };
 const REFRESH_MS = 30000;
 
 const totalEl = document.getElementById("totalCount");
+const listingRowEl = document.getElementById("listingRow");
 const deviceRowEl = document.getElementById("deviceRow");
 const recentListEl = document.getElementById("recentList");
 const updatedAtEl = document.getElementById("updatedAt");
@@ -28,6 +30,16 @@ function formatTime(date) {
     hour: "2-digit",
     minute: "2-digit"
   });
+}
+
+function renderListings(counts) {
+  listingRowEl.innerHTML = "";
+  for (const key of Object.keys(LISTING_LABELS)) {
+    const chip = document.createElement("div");
+    chip.className = "device-chip listing-chip";
+    chip.innerHTML = `<span class="device-chip-count">${counts[key] ?? 0}</span><span class="device-chip-label">${LISTING_LABELS[key]}</span>`;
+    listingRowEl.appendChild(chip);
+  }
 }
 
 function renderDevices(counts) {
@@ -49,10 +61,12 @@ function renderRecent(docs) {
   for (const d of docs) {
     const data = d.data();
     const when = data.ts ? formatTime(data.ts.toDate()) : "—";
+    const listingKey = data.listing || "byd"; // records from before the split default to byd
     const li = document.createElement("li");
     li.className = "recent-row";
     li.innerHTML = `
       <span class="recent-time">${when}</span>
+      <span class="tag tag-listing">${LISTING_LABELS[listingKey] || listingKey}</span>
       <span class="tag tag-device">${data.device || "לא ידוע"}</span>
       <span class="tag tag-browser">${data.browser || "לא ידוע"}</span>
     `;
@@ -65,7 +79,15 @@ async function loadStats() {
   refreshBtn.textContent = "טוען...";
   try {
     const totalSnap = await getCountFromServer(col);
-    totalEl.textContent = totalSnap.data().count;
+    const total = totalSnap.data().count;
+    totalEl.textContent = total;
+
+    // Records written before the BYD/Honda split have no `listing` field at
+    // all, so "byd" is derived as the remainder rather than queried
+    // directly — a direct query would miss those older records.
+    const hondaSnap = await getCountFromServer(query(col, where("listing", "==", "honda")));
+    const hondaCount = hondaSnap.data().count;
+    renderListings({ honda: hondaCount, byd: total - hondaCount });
 
     const counts = {};
     for (const cat of DEVICE_CATEGORIES) {

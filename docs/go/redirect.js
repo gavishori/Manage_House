@@ -6,6 +6,7 @@
 const PROJECT_ID = "car-qr-counter";
 const API_KEY = "AIzaSyC0KFLFvnmWnSO-5E-i9LEaxzMxppAbBjc";
 const TARGET_URL = "https://www.yad2.co.il/vehicles/item/57q4474l?key=97eO8nxkFJmbtCZA";
+const LISTING = "byd";
 
 function detectDevice(ua) {
   if (/iPad|Tablet|PlayBook/i.test(ua)) return "טאבלט";
@@ -28,7 +29,8 @@ function logScanFireAndForget() {
     fields: {
       device: { stringValue: detectDevice(ua) },
       browser: { stringValue: detectBrowser(ua) },
-      ts: { timestampValue: new Date().toISOString() }
+      ts: { timestampValue: new Date().toISOString() },
+      listing: { stringValue: LISTING }
     }
   };
   const url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/carQrScans?key=${API_KEY}`;
