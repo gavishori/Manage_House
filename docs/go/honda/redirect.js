@@ -2,7 +2,29 @@
 // Firebase SDK and uses sendBeacon.
 const PROJECT_ID = "car-qr-counter";
 const API_KEY = "AIzaSyC0KFLFvnmWnSO-5E-i9LEaxzMxppAbBjc";
-const TARGET_URL = "https://wa.me/972503043348";
+const WHATSAPP_NUMBER = "972503043348";
+const PREFILL_MESSAGE = `הי,
+
+ראיתי את הרכב
+
+הונדה ג'אז 2005 מפרטי.
+
+287,000 ק"מ.
+
+מטופלת מכאנית.
+
+הוחלף מנוע בינואר 2025.
+
+טסט עד 02.2027.
+
+ארבעה צמיגים חדשים.
+
+נדרשים שני טסטים בשנה.
+
+מומלץ.
+
+תחזור אלי בבקשה`;
+const TARGET_URL = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(PREFILL_MESSAGE)}`;
 const LISTING = "honda";
 
 function detectDevice(ua) {

@@ -143,6 +143,48 @@ body {
   color: var(--accent);
 }
 
+.listing-hero {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.listing-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  padding: 18px 8px;
+  text-align: center;
+  min-width: 0;
+}
+
+.listing-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.listing-number {
+  font-size: clamp(32px, 10vw, 48px);
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+
+.total-hint {
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0 0 20px;
+}
+
 .device-row {
   display: flex;
   gap: 10px;

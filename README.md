@@ -15,7 +15,9 @@ project (`car-qr-counter`), no shared code or data with anything else.
    full SDK load would take. Then:
    - BYD lands the visitor on the Yad2 listing:
      `https://www.yad2.co.il/vehicles/item/57q4474l?key=97eO8nxkFJmbtCZA`
-   - Honda lands the visitor on a WhatsApp chat: `https://wa.me/972503043348`
+   - Honda lands the visitor on a WhatsApp chat with `972503043348`, with the
+     message box pre-filled with a description of the car (edit
+     `PREFILL_MESSAGE` in `docs/go/honda/redirect.js` to change the wording)
 
    (A screen recording paused frame-by-frame, or view-source, could still
    reveal the intermediate URL — a fully invisible redirect needs a

@@ -15,8 +15,8 @@ const DEVICE_CATEGORIES = ["נייד", "טאבלט", "מחשב"];
 const LISTING_LABELS = { byd: "BYD", honda: "הונדה" };
 const REFRESH_MS = 30000;
 
-const totalEl = document.getElementById("totalCount");
-const listingRowEl = document.getElementById("listingRow");
+const listingHeroEl = document.getElementById("listingHero");
+const totalHintEl = document.getElementById("totalHint");
 const deviceRowEl = document.getElementById("deviceRow");
 const recentListEl = document.getElementById("recentList");
 const updatedAtEl = document.getElementById("updatedAt");
@@ -33,12 +33,12 @@ function formatTime(date) {
 }
 
 function renderListings(counts) {
-  listingRowEl.innerHTML = "";
+  listingHeroEl.innerHTML = "";
   for (const key of Object.keys(LISTING_LABELS)) {
-    const chip = document.createElement("div");
-    chip.className = "device-chip listing-chip";
-    chip.innerHTML = `<span class="device-chip-count">${counts[key] ?? 0}</span><span class="device-chip-label">${LISTING_LABELS[key]}</span>`;
-    listingRowEl.appendChild(chip);
+    const card = document.createElement("div");
+    card.className = "listing-card";
+    card.innerHTML = `<p class="listing-label">${LISTING_LABELS[key]}</p><div class="listing-number">${counts[key] ?? 0}</div>`;
+    listingHeroEl.appendChild(card);
   }
 }
 
@@ -80,7 +80,6 @@ async function loadStats() {
   try {
     const totalSnap = await getCountFromServer(col);
     const total = totalSnap.data().count;
-    totalEl.textContent = total;
 
     // Records written before the BYD/Honda split have no `listing` field at
     // all, so "byd" is derived as the remainder rather than queried
@@ -88,6 +87,7 @@ async function loadStats() {
     const hondaSnap = await getCountFromServer(query(col, where("listing", "==", "honda")));
     const hondaCount = hondaSnap.data().count;
     renderListings({ honda: hondaCount, byd: total - hondaCount });
+    totalHintEl.textContent = `סה"כ שתי המודעות: ${total}`;
 
     const counts = {};
     for (const cat of DEVICE_CATEGORIES) {
