@@ -106,6 +106,8 @@ tr.over td{background:var(--overbg)}
 .prog span{display:block;height:100%;background:var(--pos);width:0}
 .switch{display:inline-flex;gap:8px;align-items:center;font-weight:600;color:var(--ink2);cursor:pointer}
 .foot{margin-top:40px}
+dialog#shareDlg{border:1px solid var(--line);border-radius:14px;background:var(--card);color:var(--ink);padding:20px;width:min(480px,calc(100vw - 32px))}
+dialog#shareDlg::backdrop{background:rgba(0,0,0,.35)}
 @media (max-width:560px){
   body{font-size:16px} header h1{font-size:25px}
   .bars .row{grid-template-columns:110px 1fr 78px;font-size:14px}
@@ -129,6 +131,17 @@ tr.over td{background:var(--overbg)}
   <p class="small" id="gateWho" style="margin-top:14px"></p>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
+<dialog id="shareDlg">
+  <h3>שיתוף הנתונים</h3>
+  <p class="small">מי שברשימה יכול להתחבר עם חשבון Google שלו ולראות ולערוך את כל הנתונים, כולל התקציב והתשובות.</p>
+  <form id="shareForm" class="filters" style="margin:10px 0">
+    <input type="email" id="shareEmail" placeholder="כתובת Gmail" required style="flex:1;min-width:200px;font:inherit;font-size:16px;padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)">
+    <button class="pri" type="submit">הוספה</button>
+  </form>
+  <table id="shareList"></table>
+  <p class="small" id="shareMsg"></p>
+  <div style="text-align:left;margin-top:12px"><button type="button" class="sm" id="shareClose">סגירה</button></div>
+</dialog>
 <div id="app" hidden>
 <header>
   <div>
@@ -137,6 +150,7 @@ tr.over td{background:var(--overbg)}
   </div>
   <div style="display:flex;gap:6px;flex-wrap:wrap">
     <button class="sm" type="button" data-upload>עדכון נתונים</button>
+    <button class="sm" id="shareBtn" type="button" hidden>שיתוף</button>
     <button class="sm" id="theme" type="button">מצב כהה/בהיר</button>
     <button class="sm" id="signOut" type="button">התנתקות</button>
   </div>
@@ -539,7 +553,7 @@ $('#bitTbl').innerHTML='<thead><tr><th>תאריך</th><th>תיאור</th><th>מ�
 drawMonth(); drawTx(); showTab();
 };
 </script>
-<script type="module" src="app.js?v=4"></script>
+<script type="module" src="app.js?v=5"></script>
 <script>
 // If the app module fails to load (old cached files, blocked script), say so instead of hanging on "טוען…".
 setTimeout(() => {

@@ -18,7 +18,7 @@ firestore.rules      מי מורשה לקרוא ולכתוב את הנתונים
 finance/private/     לא נכנס ל-git: קבצי ייצוא, config.json, data.json
 ```
 
-**הנתונים לא נמצאים בריפו.** הם שמורים ב-Firestore, במסמכים `finance/data` (התנועות) ו-`finance/state` (תקציב ותשובות). לפי `firestore.rules`, רק חשבונות Google שברשימה יכולים לקרוא או לכתוב אותם. הריפו ציבורי, ולכן אין להכניס אליו את `finance/private/`. התיקייה מוחרגת ב-`.gitignore`.
+**הנתונים לא נמצאים בריפו.** הם שמורים ב-Firestore, במסמכים `finance/data` (התנועות) ו-`finance/state` (תקציב ותשובות). לפי `firestore.rules`, רק הבעלים ומי שהוא שיתף איתם יכולים לקרוא או לכתוב אותם. הריפו ציבורי, ולכן אין להכניס אליו את `finance/private/`. התיקייה מוחרגת ב-`.gitignore`.
 
 ## עדכון חודשי
 
@@ -45,7 +45,8 @@ finance/private/     לא נכנס ל-git: קבצי ייצוא, config.json, dat
 
 ## הרשאות ופריסה
 
-- **הוספת משתמש** (למשל בן/בת זוג): מוסיפים את כתובת ה-Gmail לרשימה ב-`firestore.rules` ומריצים:
+- **שיתוף:** הבעלים (המייל שמוגדר ב-`firestore.rules` וב-`docs/firebase-config.js`) לוחץ באפליקציה על **״שיתוף״** ומוסיף או מסיר כתובות Gmail. הרשימה נשמרת ב-Firestore, באוסף `access`, ולא בריפו הציבורי. מי שברשימה מתחבר עם Google ורואה ועורך את כל הנתונים.
+- **פריסת חוקי האבטחה** אחרי שינוי ב-`firestore.rules`:
   ```
   npx firebase-tools deploy --only firestore:rules
   ```

@@ -8,3 +8,6 @@ export const firebaseConfig = {
   messagingSenderId: "281955609872",
   appId: "1:281955609872:web:77414d20e99bb49f9c8995"
 };
+
+// The owner always has access and manages sharing; must match firestore.rules.
+export const ownerEmail = "gavishori@gmail.com";

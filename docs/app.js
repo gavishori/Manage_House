@@ -4,11 +4,11 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, serverTimestamp }
+import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 // Bump ?v= on every change: GitHub Pages caches files for ~10 minutes, and an old
 // cached firebase-config.js from the previous site broke the module import.
-import { firebaseConfig } from "./firebase-config.js?v=4";
+import { firebaseConfig, ownerEmail } from "./firebase-config.js?v=5";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -59,9 +59,42 @@ $("#fileIn").onchange = async () => {
   }
 };
 
+// ---- sharing (owner only): one /access/{email} document per shared account
+async function drawShares() {
+  const snap = await getDocs(collection(db, "access"));
+  const rows = snap.docs.map(d => d.id).sort();
+  $("#shareList").innerHTML = rows.length
+    ? "<tbody>" + rows.map(e => `<tr><td>${e}</td><td style="text-align:left"><button class="sm" type="button" data-remove="${e}">הסרה</button></td></tr>`).join("") + "</tbody>"
+    : '<tbody><tr><td class="small">עוד לא שיתפת עם אף אחד.</td></tr></tbody>';
+}
+$("#shareBtn").onclick = async () => {
+  $("#shareMsg").textContent = "";
+  $("#shareDlg").showModal();
+  try { await drawShares(); } catch (e) { $("#shareMsg").textContent = "שגיאה: " + (e.code || e.message); }
+};
+$("#shareClose").onclick = () => $("#shareDlg").close();
+$("#shareForm").onsubmit = async e => {
+  e.preventDefault();
+  const email = $("#shareEmail").value.trim().toLowerCase();
+  if (!email || email === ownerEmail) return;
+  try {
+    await setDoc(doc(db, "access", email), { addedAt: serverTimestamp(), addedBy: auth.currentUser.email });
+    $("#shareEmail").value = "";
+    $("#shareMsg").textContent = `${email} נוסף. אפשר לשלוח לו/לה את הקישור לאתר.`;
+    await drawShares();
+  } catch (err) { $("#shareMsg").textContent = "ההוספה נכשלה: " + (err.code || err.message); }
+};
+$("#shareList").onclick = async e => {
+  const email = e.target.closest("[data-remove]")?.dataset.remove;
+  if (!email || !confirm(`להסיר את הגישה של ${email}?`)) return;
+  try { await deleteDoc(doc(db, "access", email)); $("#shareMsg").textContent = `הגישה של ${email} הוסרה.`; await drawShares(); }
+  catch (err) { $("#shareMsg").textContent = "ההסרה נכשלה: " + (err.code || err.message); }
+};
+
 onAuthStateChanged(auth, async user => {
   if (!user) return gate("כדי לראות את הנתונים צריך להתחבר.", { signIn: true });
   $("#gateWho").textContent = "מחובר כ-" + user.email;
+  $("#shareBtn").hidden = user.email !== ownerEmail;
   gate("טוען נתונים…");
   try {
     const [d, st] = await Promise.all([getDoc(dataRef), getDoc(stateRef)]);
