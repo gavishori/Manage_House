@@ -221,6 +221,12 @@ def main():
                           mcat=c["mcat"], card=c["card"])
         ledger.append(dict(d=c["d"], td=c["td"], src="card", desc=c["m"], cat=cat, amt=-c["a"],
                            card=c["card"], note=c["note"], kind=c["kind"]))
+    # categories of kind "ignore" (e.g. a card used only for someone else's apartment) never reach the app
+    ignored = {c for c, v in cfg["categories"].items() if v.get("kind") == "ignore"}
+    dropped = sum(1 for x in ledger if x["cat"] in ignored)
+    ledger = [x for x in ledger if x["cat"] not in ignored]
+    if dropped:
+        print(f"ignored {dropped} transactions ({', '.join(sorted(ignored))})")
     ledger.sort(key=lambda x: x["d"])
     missing = sorted({x["cat"] for x in ledger} - unknown)
     if missing:
