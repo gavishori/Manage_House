@@ -2,12 +2,14 @@
 
 אפליקציית ווב לניהול הכספים של הבית: סקירה ותחזית חודשית, מעקב חודשי מול תקציב, התחייבויות קבועות, תובנות, פנסיה, שאלות פתוחות ופירוט כל התנועות.
 
-**כתובת:** <https://car-qr-counter.web.app>, כניסה עם חשבון Google מורשה בלבד.
+**כתובות** (אותה אפליקציה, כניסה עם חשבון Google מורשה בלבד):
+- <https://car-qr-counter.web.app> (Firebase Hosting)
+- <https://gavishori.github.io/Manage_House/> (GitHub Pages, מתעדכן אוטומטית בכל push)
 
 ## איך זה בנוי
 
 ```
-public/              האפליקציה שמתפרסמת ב-Firebase Hosting (בלי שום נתון אישי)
+docs/                האפליקציה שמתפרסמת ב-Firebase Hosting וב-GitHub Pages (בלי שום נתון אישי)
   index.html         הדשבורד
   app.js             התחברות עם Google, טעינה ושמירה מול Firestore
   firebase-config.js הגדרות הפרויקט ב-Firebase (ציבוריות מטבען)
@@ -51,4 +53,4 @@ finance/private/     לא נכנס ל-git: קבצי ייצוא, config.json, dat
   ```
   npx firebase-tools deploy --only hosting
   ```
-- **הגדרה חד-פעמית:** ב-Firebase Console, בתפריט Authentication ← Sign-in method, מפעילים את Google.
+- **הגדרה חד-פעמית:** ב-Firebase Console, בתפריט Authentication ← Sign-in method, מפעילים את Google. ב-Authentication ← Settings ← Authorized domains מוסיפים את `gavishori.github.io`.

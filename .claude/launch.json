@@ -4,7 +4,7 @@
     {
       "name": "manage-house",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "5511", "--bind", "127.0.0.1", "--directory", "public"],
+      "runtimeArgs": ["-m", "http.server", "5511", "--bind", "127.0.0.1", "--directory", "docs"],
       "port": 5511
     }
   ]
