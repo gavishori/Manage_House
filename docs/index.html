@@ -108,6 +108,17 @@ tr.over td{background:var(--overbg)}
 .foot{margin-top:40px}
 dialog#shareDlg{border:1px solid var(--line);border-radius:14px;background:var(--card);color:var(--ink);padding:20px;width:min(480px,calc(100vw - 32px))}
 dialog#shareDlg::backdrop{background:rgba(0,0,0,.35)}
+dialog#drill{border:1px solid var(--line);border-radius:14px;background:var(--card);color:var(--ink);padding:0;width:min(760px,calc(100vw - 24px));max-height:calc(100vh - 40px)}
+dialog#drill::backdrop{background:rgba(0,0,0,.35)}
+#drill .dh{position:sticky;top:0;background:var(--card);padding:16px 20px 10px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+#drill .db{padding:12px 20px 20px}
+#drill h3{margin:0;font-size:20px}
+#drill .tot{font-size:26px;font-weight:800;font-variant-numeric:tabular-nums}
+#drill tr.click{cursor:pointer} #drill tr.click:hover td{background:var(--chip)}
+[data-drill]{cursor:pointer;transition:border-color .15s}
+[data-drill]:hover{border-color:var(--accent)}
+.kpi[data-drill] .lab::after{content:" ›";color:var(--accent);font-weight:800}
+#fcIn tbody tr,#fcOut tbody tr{cursor:pointer} #fcIn tbody tr:hover td,#fcOut tbody tr:hover td{background:var(--chip)}
 @media (max-width:560px){
   body{font-size:16px} header h1{font-size:25px}
   .bars .row{grid-template-columns:110px 1fr 78px;font-size:14px}
@@ -131,6 +142,11 @@ dialog#shareDlg::backdrop{background:rgba(0,0,0,.35)}
   <p class="small" id="gateWho" style="margin-top:14px"></p>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
+<dialog id="drill">
+  <div class="dh"><div><h3 id="drT"></h3><div class="small" id="drS"></div><div class="tot" id="drTot"></div></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="sm" id="drOpen">בכל התנועות</button><button type="button" class="sm" id="drClose">סגירה</button></div></div>
+  <div class="db" id="drB"></div>
+</dialog>
 <dialog id="shareDlg">
   <h3>שיתוף הנתונים</h3>
   <p class="small">מי שברשימה יכול להתחבר עם חשבון Google שלו ולראות ולערוך את כל הנתונים, כולל התקציב והתשובות.</p>
@@ -170,10 +186,10 @@ dialog#shareDlg::backdrop{background:rgba(0,0,0,.35)}
 <!-- ================= overview ================= -->
 <section class="tab" id="overview">
   <div class="kpis">
-    <div class="card kpi"><div class="lab">יתרה בעו״ש</div><div class="val" id="k-now"></div><div class="note" id="k-now2"></div></div>
-    <div class="card kpi"><div class="lab">ימים במינוס</div><div class="val neg" id="k-neg"></div><div class="note" id="k-neg2"></div></div>
-    <div class="card kpi"><div class="lab">הכנסה קבועה צפויה</div><div class="val" id="k-in"></div><div class="note" id="k-in2"></div></div>
-    <div class="card kpi"><div class="lab">הוצאה חודשית צפויה</div><div class="val" id="k-out"></div><div class="note">לפי ממוצע החודשים המלאים, מעודכן לשכירות ולליסינג</div></div>
+    <div class="card kpi" data-drill="k-now" title="לחצו לפירוט"><div class="lab">יתרה בעו״ש</div><div class="val" id="k-now"></div><div class="note" id="k-now2"></div></div>
+    <div class="card kpi" data-drill="k-neg" title="לחצו לפירוט"><div class="lab">ימים במינוס</div><div class="val neg" id="k-neg"></div><div class="note" id="k-neg2"></div></div>
+    <div class="card kpi" data-drill="k-in" title="לחצו לפירוט"><div class="lab">הכנסה קבועה צפויה</div><div class="val" id="k-in"></div><div class="note" id="k-in2"></div></div>
+    <div class="card kpi" data-drill="k-out" title="לחצו לפירוט"><div class="lab">הוצאה חודשית צפויה</div><div class="val" id="k-out"></div><div class="note">לפי ממוצע החודשים המלאים, מעודכן לשכירות ולליסינג</div></div>
   </div>
   <div class="alert" id="bottomLine"></div>
 
@@ -213,10 +229,10 @@ dialog#shareDlg::backdrop{background:rgba(0,0,0,.35)}
     <button class="sm" id="budReset" type="button">החזר תקציב מומלץ</button>
   </div>
   <div class="kpis" style="margin-top:0">
-    <div class="card kpi"><div class="lab">נכנס החודש</div><div class="val pos" id="m-in"></div><div class="note" id="m-in2"></div></div>
-    <div class="card kpi"><div class="lab">יצא החודש</div><div class="val" id="m-out"></div><div class="note" id="m-out2"></div></div>
-    <div class="card kpi"><div class="lab">מאזן</div><div class="val" id="m-net"></div><div class="note">בלי סכומים חד-פעמיים</div></div>
-    <div class="card kpi"><div class="lab">ניצול התקציב</div><div class="val" id="m-bud"></div><div class="note" id="m-bud2"></div></div>
+    <div class="card kpi" data-drill="m-in" title="לחצו לפירוט"><div class="lab">נכנס החודש</div><div class="val pos" id="m-in"></div><div class="note" id="m-in2"></div></div>
+    <div class="card kpi" data-drill="m-out" title="לחצו לפירוט"><div class="lab">יצא החודש</div><div class="val" id="m-out"></div><div class="note" id="m-out2"></div></div>
+    <div class="card kpi" data-drill="m-net" title="לחצו לפירוט"><div class="lab">מאזן</div><div class="val" id="m-net"></div><div class="note">בלי סכומים חד-פעמיים</div></div>
+    <div class="card kpi" data-drill="m-bud" title="לחצו לפירוט"><div class="lab">ניצול התקציב</div><div class="val" id="m-bud"></div><div class="note" id="m-bud2"></div></div>
   </div>
   <h2>הוצאות מול תקציב</h2>
   <div class="card"><div class="tblwrap" style="max-height:none"><table id="budTbl"></table></div></div>
@@ -363,7 +379,7 @@ function forecast(withBiz){
 function drawForecast(){
   const f = forecast($('#bizToggle').checked);
   const tbl = (rows, title, tot) => `<thead><tr><th>${title}</th><th class="amt">לחודש</th></tr></thead><tbody>`+
-    rows.map(r=>`<tr><td>${esc(r[0])}${r[0] in C.forecast.expense_overrides || r[0] in C.forecast.income ? ' <span class="small">(קבוע)</span>':''}</td><td class="amt">${ils(r[1])}</td></tr>`).join('')+
+    rows.map(r=>`<tr data-fc="${esc(r[0])}"><td>${esc(r[0])}${r[0] in C.forecast.expense_overrides || r[0] in C.forecast.income ? ' <span class="small">(קבוע)</span>':''}</td><td class="amt">${ils(r[1])}</td></tr>`).join('')+
     `</tbody><tfoot><tr><td>סה״כ</td><td class="amt">${ils(tot)}</td></tr></tfoot>`;
   $('#fcIn').innerHTML = tbl(f.inc,'נכנס',f.tin);
   $('#fcOut').innerHTML = tbl(f.out,'יוצא',f.tout) + `<tfoot><tr><td>הפרש</td><td class="amt ${f.tin-f.tout<0?'neg':'pos'}">${ils(f.tin-f.tout)}</td></tr></tfoot>`;
@@ -566,10 +582,91 @@ function drawTx(){
 $('#bitTbl').innerHTML='<thead><tr><th>תאריך</th><th>תיאור</th><th>מי</th><th class="amt">סכום</th></tr></thead><tbody>'+
   DATA.bit.slice().reverse().map(b=>`<tr><td class="small">${dmy(b.d)}</td><td>${esc(b.desc)}<div class="small">${esc(b.pay)}</div></td><td class="small">${esc(b.who)}</td><td class="amt ${b.dir==='in'?'p':''}">${b.dir==='in'?'+':'−'}${ils(b.a)}</td></tr>`).join('')+'</tbody>';
 
+// ---------- drill-down: every number opens the transactions behind it
+let drillFilter=null;
+const txRowsHtml = rows => '<table><thead><tr><th>תאריך</th><th>תיאור</th><th class="hide-sm">קטגוריה</th><th class="amt">סכום</th></tr></thead><tbody>'+
+  rows.map(t=>`<tr><td class="small">${dmy(t.d)}</td><td>${esc(t.desc)}${t.src==='card'?` <span class="small">· כרטיס ${t.card}${t.note?' · '+esc(t.note):''}</span>`:' <span class="small">· בנק</span>'}</td><td class="small hide-sm">${esc(t.cat)}</td><td class="amt ${t.amt>0?'p':''}">${t.amt>0?'+':''}${ils(t.amt)}</td></tr>`).join('')+'</tbody></table>';
+function catSummary(rows){
+  const g={}; rows.forEach(t=>g[t.cat]=(g[t.cat]||0)+t.amt);
+  const list=Object.entries(g).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]));
+  if(list.length<2) return '';
+  return '<h3 style="font-size:16px;margin:4px 0 6px">לפי קטגוריה</h3><table style="margin-bottom:16px"><tbody>'+
+    list.map(([c,v])=>`<tr class="click" data-cat="${esc(c)}"><td>${esc(c)}</td><td class="small">${rows.filter(t=>t.cat===c).length} תנועות</td><td class="amt">${ils(v)}</td></tr>`).join('')+'</tbody></table><h3 style="font-size:16px;margin:4px 0 6px">התנועות</h3>';
+}
+function openDrill({title, sub='', total=null, rows=null, html='', filter=null}){
+  $('#drT').textContent=title; $('#drS').innerHTML=sub;
+  $('#drTot').textContent = total==null ? '' : ils(total);
+  $('#drTot').className = 'tot '+(total<0?'neg':'');
+  let body=html;
+  if(rows){ const sorted=rows.slice().sort((a,b)=>b.d.localeCompare(a.d)); body += rows.length ? catSummary(rows)+txRowsHtml(sorted) : '<p class="small">אין תנועות.</p>'; }
+  $('#drB').innerHTML=body;
+  drillFilter=filter; $('#drOpen').hidden=!filter;
+  $('#drB').querySelectorAll('tr[data-cat]').forEach(tr=>tr.onclick=()=>{
+    const c=tr.dataset.cat, sub2=rows.filter(t=>t.cat===c);
+    openDrill({title:c, sub:`מתוך: ${esc(title)}`, total:sumBy(sub2,t=>t.amt), rows:sub2, filter:{...(filter||{}), cat:c}});
+  });
+  if(!$('#drill').open) $('#drill').showModal();
+  $('#drB').scrollTop=0;
+}
+$('#drClose').onclick=()=>$('#drill').close();
+$('#drill').addEventListener('click',e=>{ if(e.target===$('#drill')) $('#drill').close(); });
+$('#drOpen').onclick=()=>{ const f=drillFilter||{}; $('#txM').value=f.m||''; $('#txC').value=f.cat||''; $('#txS').value=f.src||''; $('#txQ').value=''; drawTx(); $('#drill').close(); location.hash='#tx'; };
+
+const fcSource = c => {
+  if(c==='פנסיה'){
+    const S=DATA.slips;
+    return {title:'פנסיה: מאיפה המספר', sub: C.forecast.income[c]==='median_payslip' ? 'חציון ה״נטו לתשלום״ בתלושים'
+      : (C.pension&&C.pension.hivun_net_gain ? `סכום קבוע מההגדרות: חציון התלושים (${ils(pensionBase)}) ועוד כ-${ils(C.pension.hivun_net_gain)} אחרי שניכוי ההיוון הסתיים.` : 'סכום קבוע מההגדרות.'), total: C.forecast.income[c]==='median_payslip'?pensionBase:C.forecast.income[c],
+      html:'<table><thead><tr><th>תלוש</th><th class="amt">נטו לתשלום</th><th>תוספות</th></tr></thead><tbody>'+S.map(s=>`<tr><td>${mLabel(s.month)}</td><td class="amt">${ils(s.net)}</td><td class="small">${s.extras.map(e=>esc(e[0])).join(', ')}</td></tr>`).join('')+'</tbody></table>'};
+  }
+  const rows=L.filter(t=>t.cat===c && fullMonths.includes(t.d.slice(0,7)));
+  const fixed = c in C.forecast.expense_overrides || (c in C.forecast.income);
+  const val = c in C.forecast.expense_overrides ? C.forecast.expense_overrides[c] : c in C.forecast.income ? C.forecast.income[c] : -avgCat(c);
+  return {title:c, total:val, rows, filter:{cat:c},
+    sub: fixed ? `סכום קבוע מההגדרות (${ils(val)} לחודש). למטה התנועות בפועל ב-${fullMonths.length} החודשים המלאים, להשוואה.`
+               : `ממוצע של ${fullMonths.length} החודשים המלאים (${mShort(fullMonths[0])}–${mShort(fullMonths[fullMonths.length-1])}): סך ${ils(-sumBy(rows,t=>t.amt))} ÷ ${fullMonths.length}.`};
+};
+['#fcIn','#fcOut'].forEach(sel=>$(sel).addEventListener('click',e=>{const tr=e.target.closest('tr[data-fc]'); if(tr) openDrill(fcSource(tr.dataset.fc));}));
+
+const negStretches = () => {
+  const out=[]; let cur=null;
+  DATA.balance.forEach(([d,v])=>{ if(v<0){ if(!cur) cur={from:d,to:d,min:v,minD:d,days:0}; cur.to=d; cur.days++; if(v<cur.min){cur.min=v;cur.minD=d;} } else if(cur){ out.push(cur); cur=null; } });
+  if(cur) out.push(cur); return out;
+};
+const DRILL = {
+  'k-now': ()=>{ const B=DATA.balance, last=B[B.length-1][0], from=new Date(last); from.setDate(from.getDate()-30);
+    const f=from.toISOString().slice(0,10), rows=L.filter(t=>t.src==='bank'&&t.d>f);
+    return {title:'יתרה בעו״ש: תנועות הבנק ב-30 הימים האחרונים', sub:`היתרה מחושבת מהיתרה שבייצוא האחרון של הבנק (${dmy(last)}), אחורה לפי כל תנועה.`, total:B[B.length-1][1], rows, filter:{src:'bank'}}; },
+  'k-neg': ()=>{ const st=negStretches();
+    return {title:'ימים במינוס', sub:'כל תקופה רצופה שבה היתרה בסוף היום הייתה שלילית. לחיצה על שורה מציגה את תנועות הבנק בתקופה.',
+      html:'<table><thead><tr><th>מ-</th><th>עד</th><th class="amt">ימים</th><th class="amt">הכי נמוך</th></tr></thead><tbody>'+st.map((x,i)=>`<tr class="click" data-st="${i}"><td>${dmy(x.from)}</td><td>${dmy(x.to)}</td><td class="amt">${x.days}</td><td class="amt neg">${ils(x.min)} <span class="small">(${dmy(x.minD)})</span></td></tr>`).join('')+'</tbody></table>',
+      after:()=>$('#drB').querySelectorAll('tr[data-st]').forEach(tr=>tr.onclick=()=>{const x=st[+tr.dataset.st], rows=L.filter(t=>t.src==='bank'&&t.d>=x.from&&t.d<=x.to); openDrill({title:`מינוס ${dmy(x.from)}–${dmy(x.to)}`, sub:'תנועות הבנק בתקופה', total:sumBy(rows,t=>t.amt), rows, filter:{src:'bank'}});})}; },
+  'k-in': ()=>{ const f=forecast(false);
+    return {title:'הכנסה קבועה צפויה', sub:'בלי העברה מהעסק. לחיצה על שורה מציגה את המקור שלה.', total:f.tin,
+      html:'<table><tbody>'+f.inc.map(r=>`<tr class="click" data-fc="${esc(r[0])}"><td>${esc(r[0])}</td><td class="amt">${ils(r[1])}</td></tr>`).join('')+'</tbody></table>', after:wireFc}; },
+  'k-out': ()=>{ const f=forecast(true);
+    return {title:'הוצאה חודשית צפויה', sub:'לכל קטגוריה: סכום קבוע מההגדרות, או ממוצע החודשים המלאים. לחיצה על שורה מציגה את המקור שלה.', total:-f.tout,
+      html:'<table><tbody>'+f.out.map(r=>`<tr class="click" data-fc="${esc(r[0])}"><td>${esc(r[0])}${r[0] in C.forecast.expense_overrides?' <span class="small">(קבוע)</span>':''}</td><td class="amt">${ils(r[1])}</td></tr>`).join('')+'</tbody></table>', after:wireFc}; },
+  'm-in': ()=>{ const m=$('#mSel').value, rows=L.filter(t=>t.d.startsWith(m)&&kind(t.cat)==='income');
+    return {title:`נכנס ב${mLabel(m)}`, sub:'הכנסות שוטפות. בלי חד-פעמי (מכירת רכב, קרן השתלמות) ובלי כסף שרק עובר דרככם.', total:sumBy(rows,t=>t.amt), rows, filter:{m}}; },
+  'm-out': ()=>{ const m=$('#mSel').value, rows=L.filter(t=>t.d.startsWith(m)&&kind(t.cat)==='expense');
+    return {title:`יצא ב${mLabel(m)}`, sub:'הוצאות שוטפות. חיובי כרטיס לפי מועד החיוב. בלי סכומים חד-פעמיים.', total:sumBy(rows,t=>t.amt), rows, filter:{m}}; },
+  'm-net': ()=>{ const m=$('#mSel').value, rows=L.filter(t=>t.d.startsWith(m)&&isRegular(t.cat));
+    const inc=sumBy(rows.filter(t=>t.amt>0),t=>t.amt), out=sumBy(rows.filter(t=>t.amt<0),t=>t.amt);
+    return {title:`מאזן ${mLabel(m)}`, sub:`נכנס ${ils(inc)} פחות יצא ${ils(-out)}.`, total:inc+out, rows, filter:{m}}; },
+  'm-bud': ()=>{ const m=$('#mSel').value, rows=L.filter(t=>t.d.startsWith(m));
+    const lines=Object.keys(CAT).filter(c=>kind(c)==='expense').map(c=>({c,a:-sumBy(rows.filter(t=>t.cat===c),t=>t.amt),b:budgetOf(c)})).filter(x=>x.a>0||x.b>0).sort((x,y)=>(y.a-y.b)-(x.a-x.b));
+    return {title:`ניצול התקציב ב${mLabel(m)}`, sub:'הקטגוריות מסודרות מהחריגה הגדולה לקטנה. לחיצה על שורה מציגה את התנועות.',
+      html:'<table><thead><tr><th>קטגוריה</th><th class="amt">בפועל</th><th class="amt">תקציב</th><th class="amt">הפרש</th></tr></thead><tbody>'+lines.map(x=>`<tr class="click ${x.a>x.b?'over':''}" data-bc="${esc(x.c)}"><td>${esc(x.c)}</td><td class="amt">${ils(x.a)}</td><td class="amt">${ils(x.b)}</td><td class="amt ${x.a>x.b?'neg':''}">${ils(x.b-x.a)}</td></tr>`).join('')+'</tbody></table>',
+      after:()=>$('#drB').querySelectorAll('tr[data-bc]').forEach(tr=>tr.onclick=()=>{const c=tr.dataset.bc, rs=rows.filter(t=>t.cat===c); openDrill({title:`${c}, ${mLabel(m)}`, sub:`תקציב ${ils(budgetOf(c))}`, total:sumBy(rs,t=>t.amt), rows:rs, filter:{m,cat:c}});})}; },
+};
+function wireFc(){ $('#drB').querySelectorAll('tr[data-fc]').forEach(tr=>tr.onclick=()=>openDrill(fcSource(tr.dataset.fc))); }
+document.querySelectorAll('[data-drill]').forEach(el=>el.addEventListener('click',()=>{ const spec=DRILL[el.dataset.drill](); openDrill(spec); spec.after&&spec.after(); }));
+
 drawMonth(); drawTx(); showTab();
 };
 </script>
-<script type="module" src="app.js?v=6"></script>
+<script type="module" src="app.js?v=7"></script>
 <script>
 // If the app module fails to load (old cached files, blocked script), say so instead of hanging on "טוען…".
 setTimeout(() => {
