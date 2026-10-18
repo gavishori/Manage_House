@@ -149,6 +149,7 @@ dialog#shareDlg::backdrop{background:rgba(0,0,0,.35)}
     <p id="srcLine"></p>
   </div>
   <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <button class="sm" type="button" onclick="location.reload()" title="טוען מחדש את הנתונים מהחשבון, בלי להעלות קובץ">רענון</button>
     <button class="sm" type="button" data-upload>עדכון נתונים</button>
     <button class="sm" id="shareBtn" type="button" hidden>שיתוף</button>
     <button class="sm" id="theme" type="button">מצב כהה/בהיר</button>
@@ -254,7 +255,7 @@ dialog#shareDlg::backdrop{background:rgba(0,0,0,.35)}
   <h2>מה כבר ברור</h2>
   <div class="card"><table id="learnTbl"></table></div>
   <h2>שאלות פתוחות</h2>
-  <p class="sub">התשובה נשמרת אוטומטית בדפדפן הזה. בסוף לחצו ״העתק את כל התשובות״ והדביקו ל-Claude, כדי שיעדכן את הכללים, התובנות והתקציב. התשובות והתקציב נשמרים גם בחשבון ומסתנכרנים בין מכשירים.</p>
+  <p class="sub">כל תשובה נשמרת אוטומטית בחשבון ומסתנכרנת בין מכשירים. שאלה שענית עליה עוברת לרשימת ״נענו״ בתחתית, אחרי רענון. כדי שהתשובות ייכנסו לניתוח עצמו (כללים, תובנות ותקציב), לחצו ״העתק את כל התשובות״ והדביקו ל-Claude.</p>
   <div class="qbar">
     <button class="pri" id="copyBtn" type="button">העתק את כל התשובות</button>
     <button id="dlBtn" type="button">הורד כקובץ טקסט</button>
@@ -262,6 +263,10 @@ dialog#shareDlg::backdrop{background:rgba(0,0,0,.35)}
     <span class="small" id="progTxt"></span>
   </div>
   <div id="qList"></div>
+  <details id="qDoneWrap" class="card" style="margin-top:12px" hidden>
+    <summary style="cursor:pointer;font-weight:800" id="qDoneSum"></summary>
+    <div id="qDone" style="margin-top:12px"></div>
+  </details>
 </section>
 
 <!-- ================= transactions ================= -->
@@ -524,16 +529,27 @@ $('#insList').innerHTML=C.insights.map((x,i)=>`<div class="card"><div class="n">
 $('#learnTbl').innerHTML='<tbody>'+C.learned.map(r=>`<tr><td style="width:34%;font-weight:600">${esc(r[0])}</td><td>${esc(r[1])}</td></tr>`).join('')+'</tbody>';
 const ANS_KEY='mh-fin-answers-r2';
 let ANS=STATE.answers || store.get(ANS_KEY,{});
-$('#qList').innerHTML=C.questions.map((q,i)=>`<div class="card q" id="q-${q.id}"><div class="qh"><h3>${i+1}. ${esc(q.t)}</h3><span class="st"></span></div>${q.a?`<div class="amtq">${esc(q.a)}</div>`:''}<p>${esc(q.p)}</p><textarea data-id="${q.id}" placeholder="התשובה שלך…"></textarea></div>`).join('');
+const qCard=(q,i)=>`<div class="card q" id="q-${q.id}"><div class="qh"><h3>${i+1}. ${esc(q.t)}</h3><span class="st"></span></div>${q.a?`<div class="amtq">${esc(q.a)}</div>`:''}<p>${esc(q.p)}</p><textarea data-id="${q.id}" placeholder="התשובה שלך…"></textarea></div>`;
+// Questions answered before this load go to the collapsed "answered" list; the rest stay on top.
+const isAns=q=>(ANS[q.id]||'').trim().length>0, answeredAtLoad=C.questions.filter(isAns);
+$('#qList').innerHTML=C.questions.map((q,i)=>isAns(q)?'':qCard(q,i)).join('') || '<div class="card small">ענית על כל השאלות. לחצו ״העתק את כל התשובות״ והדביקו ל-Claude.</div>';
+$('#qDone').innerHTML=C.questions.map((q,i)=>isAns(q)?qCard(q,i):'').join('');
+$('#qDoneWrap').hidden=!answeredAtLoad.length;
+$('#qDoneSum').textContent=`שאלות שענית עליהן (${answeredAtLoad.length}). לחצו כדי לראות או לערוך`;
 function refreshQ(){
   let done=0; C.questions.forEach(q=>{const has=(ANS[q.id]||'').trim().length>0; done+=has; const c=$('#q-'+q.id); c.classList.toggle('done',has); c.querySelector('.st').textContent=has?'✓ נענה':'ממתין לתשובה';});
   $('#progBar').style.width=(done/C.questions.length*100)+'%'; $('#progTxt').textContent=`${done} מתוך ${C.questions.length} נענו`;
   const open=C.questions.length-done, a=document.querySelector('#tabs a[href="#questions"]');
   a.innerHTML='שאלות'+(open?`<span class="dot">${open}</span>`:'');
 }
-document.querySelectorAll('#qList textarea').forEach(ta=>{ ta.value=ANS[ta.dataset.id]||''; ta.oninput=()=>{ANS[ta.dataset.id]=ta.value; store.set(ANS_KEY,ANS); saveState({answers:ANS}); refreshQ();}; });
+document.querySelectorAll('#qList textarea, #qDone textarea').forEach(ta=>{ ta.value=ANS[ta.dataset.id]||''; ta.oninput=()=>{ANS[ta.dataset.id]=ta.value; store.set(ANS_KEY,ANS); saveState({answers:ANS}); refreshQ();}; });
 refreshQ();
-const answersText=()=>'תשובות לשאלות בדף ניהול ההוצאות:\n\n'+C.questions.map((q,i)=>`${i+1}. ${q.t}\n← ${(ANS[q.id]||'').trim()||'(אין תשובה עדיין)'}`).join('\n\n');
+const answersText=()=>{
+  const ids=new Set(C.questions.map(q=>q.id));
+  const older=Object.entries(ANS).filter(([k,v])=>!ids.has(k)&&(v||'').trim());  // answers to questions since removed from the list
+  return 'תשובות לשאלות בדף ניהול ההוצאות:\n\n'+C.questions.map((q,i)=>`${i+1}. ${q.t}\n← ${(ANS[q.id]||'').trim()||'(אין תשובה עדיין)'}`).join('\n\n')
+    +(older.length?'\n\nתשובות לשאלות קודמות:\n\n'+older.map(([k,v])=>`[${k}]\n← ${v.trim()}`).join('\n\n'):'');
+};
 $('#copyBtn').onclick=async()=>{const t=answersText(); try{await navigator.clipboard.writeText(t);}catch(e){const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();} $('#copyBtn').textContent='הועתק ✓'; setTimeout(()=>$('#copyBtn').textContent='העתק את כל התשובות',2000);};
 $('#dlBtn').onclick=()=>{const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([answersText()],{type:'text/plain;charset=utf-8'})); a.download='תשובות-ניהול-הוצאות.txt'; a.click();};
 
@@ -553,7 +569,7 @@ $('#bitTbl').innerHTML='<thead><tr><th>תאריך</th><th>תיאור</th><th>מ�
 drawMonth(); drawTx(); showTab();
 };
 </script>
-<script type="module" src="app.js?v=5"></script>
+<script type="module" src="app.js?v=6"></script>
 <script>
 // If the app module fails to load (old cached files, blocked script), say so instead of hanging on "טוען…".
 setTimeout(() => {
