@@ -118,12 +118,28 @@ tr.over td{background:var(--overbg)}
 </head>
 <body>
 <div class="wrap">
+<div id="gate" class="card" style="max-width:480px;margin:12vh auto;text-align:center">
+  <h1 style="margin:0 0 6px;font-size:28px">ניהול הוצאות והכנסות</h1>
+  <p class="sub" id="gateMsg">טוען…</p>
+  <button class="pri" id="signIn" type="button" hidden>התחברות עם Google</button>
+  <div id="uploadFirst" hidden>
+    <p class="sub">עוד אין נתונים בחשבון. בחרו את הקובץ data.json שנוצר בהרצת scripts/build.py.</p>
+    <button class="pri" type="button" data-upload>העלאת data.json</button>
+  </div>
+  <p class="small" id="gateWho" style="margin-top:14px"></p>
+</div>
+<input type="file" id="fileIn" accept=".json,application/json" hidden>
+<div id="app" hidden>
 <header>
   <div>
     <h1 id="title"></h1>
     <p id="srcLine"></p>
   </div>
-  <button class="sm" id="theme" type="button">מצב כהה/בהיר</button>
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <button class="sm" type="button" data-upload>עדכון נתונים</button>
+    <button class="sm" id="theme" type="button">מצב כהה/בהיר</button>
+    <button class="sm" id="signOut" type="button">התנתקות</button>
+  </div>
 </header>
 
 <nav class="tabs" id="tabs">
@@ -224,7 +240,7 @@ tr.over td{background:var(--overbg)}
   <h2>מה כבר ברור</h2>
   <div class="card"><table id="learnTbl"></table></div>
   <h2>שאלות פתוחות</h2>
-  <p class="sub">התשובה נשמרת אוטומטית בדפדפן הזה. בסוף לחצו ״העתק את כל התשובות״ והדביקו ל-Claude, כדי שיעדכן את הכללים, התובנות והתקציב.</p>
+  <p class="sub">התשובה נשמרת אוטומטית בדפדפן הזה. בסוף לחצו ״העתק את כל התשובות״ והדביקו ל-Claude, כדי שיעדכן את הכללים, התובנות והתקציב. התשובות והתקציב נשמרים גם בחשבון ומסתנכרנים בין מכשירים.</p>
   <div class="qbar">
     <button class="pri" id="copyBtn" type="button">העתק את כל התשובות</button>
     <button id="dlBtn" type="button">הורד כקובץ טקסט</button>
@@ -254,9 +270,10 @@ tr.over td{background:var(--overbg)}
 
 <p class="small foot" id="foot"></p>
 </div>
+</div>
 
 <script>
-const DATA = /*DATA*/null;
+window.renderApp = function(DATA, STATE, saveState){
 const C = DATA.config, CAT = C.categories, L = DATA.ledger;
 
 // ---------- helpers
@@ -289,7 +306,7 @@ const sumBy = (rows, f) => rows.reduce((a,t)=>a+f(t),0);
 $('#title').textContent = C.title;
 document.title = C.title;
 $('#srcLine').textContent = `${C.household} · בנק ${dmy(bankFrom)}.${bankFrom.slice(2,4)}–${dmy(bankTo)}.${bankTo.slice(2,4)} · ${DATA.counts.card} עסקאות אשראי · ${DATA.counts.slips} תלושים · עודכן ${DATA.generated}`;
-$('#foot').textContent = 'הדף נבנה מהקבצים בתיקייה finance/private/raw ונשמר רק במחשב הזה. הקטגוריות נקבעות לפי הכללים ב-config.json. זה כלי לסדר את התמונה, לא ייעוץ פיננסי.';
+$('#foot').textContent = 'הנתונים שמורים ב-Firestore, ורק החשבונות המורשים יכולים לקרוא אותם. הקטגוריות נקבעות לפי הכללים ב-config.json, ומתעדכנות בכל הרצה של scripts/build.py ולחיצה על ״עדכון נתונים״. זה כלי לסדר את התמונה, לא ייעוץ פיננסי.';
 
 // ---------- theme
 (function(){
@@ -421,7 +438,7 @@ let rt; addEventListener('resize',()=>{clearTimeout(rt); rt=setTimeout(drawChart
 
 // ---------- month view with budgets
 const BUD_KEY='mh-budgets-v1';
-let budgets = store.get(BUD_KEY, {});
+let budgets = STATE.budgets || store.get(BUD_KEY, {});
 const budgetOf = c => c in budgets ? budgets[c] : (CAT[c].budget||0);
 months.slice().reverse().forEach(m=>{
   const o=document.createElement('option'); o.value=m;
@@ -448,7 +465,7 @@ function drawMonth(){
   $('#budTbl').innerHTML='<thead><tr><th>קטגוריה</th><th class="amt">בפועל</th><th class="amt">תקציב</th><th class="hide-sm" style="width:28%">ניצול</th><th class="amt">נשאר</th></tr></thead><tbody>'+
     lines.map(r=>{const pct=r.b?Math.min(100,r.a/r.b*100):(r.a>0?100:0), ov=r.a>r.b; return `<tr class="${ov?'over':''}"><td><a href="#tx" data-c="${esc(r.c)}" class="catlink" style="color:inherit">${esc(r.c)}</a>${CAT[r.c].fixed?' <span class="small">קבוע</span>':''}</td><td class="amt">${ils(r.a)}</td><td class="amt"><input class="bud" type="number" min="0" step="50" data-c="${esc(r.c)}" value="${r.b}"></td><td class="hide-sm"><div class="meter ${ov?'over':''}"><span style="width:${pct}%"></span></div></td><td class="amt ${ov?'neg':''}">${ils(r.b-r.a)}</td></tr>`;}).join('')+
     `</tbody><tfoot><tr><td>סה״כ</td><td class="amt">${ils(ta)}</td><td class="amt">${ils(tb)}</td><td class="hide-sm"></td><td class="amt ${ta>tb?'neg':''}">${ils(tb-ta)}</td></tr></tfoot>`;
-  document.querySelectorAll('#budTbl input.bud').forEach(inp=>inp.onchange=()=>{budgets[inp.dataset.c]=Math.max(0,+inp.value||0); store.set(BUD_KEY,budgets); drawMonth();});
+  document.querySelectorAll('#budTbl input.bud').forEach(inp=>inp.onchange=()=>{budgets[inp.dataset.c]=Math.max(0,+inp.value||0); store.set(BUD_KEY,budgets); saveState({budgets}); drawMonth();});
   document.querySelectorAll('#budTbl .catlink').forEach(a=>a.onclick=()=>{$('#txC').value=a.dataset.c; $('#txM').value=m; drawTx();});
   const top=reg.filter(t=>t.amt<0).sort((a,b)=>a.amt-b.amt).slice(0,15);
   $('#mTop').innerHTML='<tbody>'+top.map(t=>`<tr><td class="small">${dmy(t.d)}</td><td>${esc(t.desc)}<div class="small">${esc(t.cat)}</div></td><td class="amt">${ils(t.amt)}</td></tr>`).join('')+'</tbody>';
@@ -456,7 +473,7 @@ function drawMonth(){
   $('#mOne').innerHTML=one.length?'<tbody>'+one.map(t=>`<tr><td class="small">${dmy(t.d)}</td><td>${esc(t.desc)}<div class="small">${esc(t.cat)}</div></td><td class="amt ${t.amt>0?'p':''}">${t.amt>0?'+':''}${ils(t.amt)}</td></tr>`).join('')+'</tbody>':'<tbody><tr><td class="small">אין החודש</td></tr></tbody>';
 }
 $('#mSel').onchange=drawMonth;
-$('#budReset').onclick=()=>{ if(confirm('להחזיר את כל התקציבים לערכים המומלצים?')){ budgets={}; store.set(BUD_KEY,budgets); drawMonth(); } };
+$('#budReset').onclick=()=>{ if(confirm('להחזיר את כל התקציבים לערכים המומלצים?')){ budgets={}; store.set(BUD_KEY,budgets); saveState({budgets}); drawMonth(); } };
 
 // ---------- fixed commitments
 (function(){
@@ -490,7 +507,7 @@ $('#insList').innerHTML=C.insights.map((x,i)=>`<div class="card"><div class="n">
 // ---------- learned + questions
 $('#learnTbl').innerHTML='<tbody>'+C.learned.map(r=>`<tr><td style="width:34%;font-weight:600">${esc(r[0])}</td><td>${esc(r[1])}</td></tr>`).join('')+'</tbody>';
 const ANS_KEY='mh-fin-answers-r2';
-let ANS=store.get(ANS_KEY,{});
+let ANS=STATE.answers || store.get(ANS_KEY,{});
 $('#qList').innerHTML=C.questions.map((q,i)=>`<div class="card q" id="q-${q.id}"><div class="qh"><h3>${i+1}. ${esc(q.t)}</h3><span class="st"></span></div>${q.a?`<div class="amtq">${esc(q.a)}</div>`:''}<p>${esc(q.p)}</p><textarea data-id="${q.id}" placeholder="התשובה שלך…"></textarea></div>`).join('');
 function refreshQ(){
   let done=0; C.questions.forEach(q=>{const has=(ANS[q.id]||'').trim().length>0; done+=has; const c=$('#q-'+q.id); c.classList.toggle('done',has); c.querySelector('.st').textContent=has?'✓ נענה':'ממתין לתשובה';});
@@ -498,7 +515,7 @@ function refreshQ(){
   const open=C.questions.length-done, a=document.querySelector('#tabs a[href="#questions"]');
   a.innerHTML='שאלות'+(open?`<span class="dot">${open}</span>`:'');
 }
-document.querySelectorAll('#qList textarea').forEach(ta=>{ ta.value=ANS[ta.dataset.id]||''; ta.oninput=()=>{ANS[ta.dataset.id]=ta.value; store.set(ANS_KEY,ANS); refreshQ();}; });
+document.querySelectorAll('#qList textarea').forEach(ta=>{ ta.value=ANS[ta.dataset.id]||''; ta.oninput=()=>{ANS[ta.dataset.id]=ta.value; store.set(ANS_KEY,ANS); saveState({answers:ANS}); refreshQ();}; });
 refreshQ();
 const answersText=()=>'תשובות לשאלות בדף ניהול ההוצאות:\n\n'+C.questions.map((q,i)=>`${i+1}. ${q.t}\n← ${(ANS[q.id]||'').trim()||'(אין תשובה עדיין)'}`).join('\n\n');
 $('#copyBtn').onclick=async()=>{const t=answersText(); try{await navigator.clipboard.writeText(t);}catch(e){const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();} $('#copyBtn').textContent='הועתק ✓'; setTimeout(()=>$('#copyBtn').textContent='העתק את כל התשובות',2000);};
@@ -518,6 +535,8 @@ $('#bitTbl').innerHTML='<thead><tr><th>תאריך</th><th>תיאור</th><th>מ�
   DATA.bit.slice().reverse().map(b=>`<tr><td class="small">${dmy(b.d)}</td><td>${esc(b.desc)}<div class="small">${esc(b.pay)}</div></td><td class="small">${esc(b.who)}</td><td class="amt ${b.dir==='in'?'p':''}">${b.dir==='in'?'+':'−'}${ils(b.a)}</td></tr>`).join('')+'</tbody>';
 
 drawMonth(); drawTx(); showTab();
+};
 </script>
+<script type="module" src="app.js"></script>
 </body>
 </html>

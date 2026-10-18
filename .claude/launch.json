@@ -2,9 +2,9 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "car-listing-qr-static",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": ["serve", "-l", "5511", "./docs"],
+      "name": "manage-house",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "5511", "--bind", "127.0.0.1", "--directory", "public"],
       "port": 5511
     }
   ]

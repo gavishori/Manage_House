@@ -2,6 +2,6 @@
 node_modules/
 *.log
 
-# Personal finance data: bank/card exports, payslips, answers and the generated dashboard.
-# Never commit; the repo is public and docs/ is published.
+# Personal finance data: bank/card exports, payslips, config and data.json.
+# Never commit; the repo is public. The data lives in Firestore.
 finance/private/

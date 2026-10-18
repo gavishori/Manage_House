@@ -1,12 +1,13 @@
-"""Build the private household finance dashboard.
+"""Build the data file for the household finance app.
 
 Reads every export dropped into finance/private/raw/ (bank account .xls,
-credit-card .xlsx, bit .csv, pension payslip .pdf),
-categorizes them with the rules in finance/private/config.json and writes
-finance/private/dashboard.html. Nothing here leaves the computer: the whole
-finance/private/ folder is git-ignored.
+credit-card .xlsx, bit .csv, pension payslip .pdf), categorizes them with the
+rules in finance/private/config.json and writes finance/private/data.json.
+That file is uploaded from the app (button "עדכון נתונים") into Firestore,
+which only the allowed Google accounts can read. finance/private/ is
+git-ignored, so no personal data is ever committed.
 
-Usage:  python finance/build.py
+Usage:  python scripts/build.py
 Needs:  pip install xlrd openpyxl pdfplumber
 """
 import csv
@@ -21,10 +22,10 @@ import openpyxl
 import pdfplumber
 import xlrd
 
-ROOT = Path(__file__).resolve().parent
-PRIV = ROOT / "private"
+ROOT = Path(__file__).resolve().parent.parent
+PRIV = ROOT / "finance" / "private"
 RAW = PRIV / "raw"
-OUT = PRIV / "dashboard.html"
+OUT = PRIV / "data.json"
 
 BIDI = dict.fromkeys(map(ord, "‪‫‬‭‮"), None)
 
@@ -236,12 +237,13 @@ def main():
         config={k: cfg[k] for k in ("title", "household", "categories", "forecast", "fixed_commitments",
                                     "insights", "learned", "questions")},
     )
-    html = (ROOT / "template.html").read_text(encoding="utf-8")
-    html = html.replace("/*DATA*/null", json.dumps(data, ensure_ascii=False))
-    OUT.write_text(html, encoding="utf-8")
+    OUT.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
     print(f"bank {len(bank)} ({b_from}..{b_to}) · card {len(cards)} ({c_from}..{c_to}) · "
           f"bit {len(bit)} · payslips {len(slips)} · ledger {len(ledger)}")
-    print("wrote", OUT)
+    size = OUT.stat().st_size
+    print(f"wrote {OUT} ({size // 1024} KB)")
+    if size > 900_000:
+        print("WARNING: close to Firestore's 1 MB document limit")
 
 
 if __name__ == "__main__":

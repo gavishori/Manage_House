@@ -1,30 +1,22 @@
 rules_version = '2';
 
-// This project holds ONLY anonymous QR-scan counters for one car listing.
-// No personal data is ever written here (no name, phone, email, or IP).
+// Household finance data. Only the Google accounts listed here can read or
+// write it. To give someone access, add their verified Google email below
+// and run: npx firebase-tools deploy --only firestore:rules
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    match /carQrScans/{scanId} {
-      // Anyone scanning a QR may create exactly one scan record with only
-      // these fields. `listing` identifies which of the (currently two)
-      // car ads was scanned; older records predate this field and are
-      // treated as "byd" by the dashboard.
-      allow create: if request.resource.data.keys().hasOnly(['device', 'browser', 'ts', 'listing'])
-                    && request.resource.data.device is string
-                    && request.resource.data.browser is string
-                    && request.resource.data.listing in ['byd', 'honda'];
-
-      // The dashboard reads aggregate counts and the recent list, and can
-      // reset (delete) records via its own confirmed "reset" button.
-      allow read: if true;
-      allow delete: if true;
-
-      // Records are never edited by clients.
-      allow update: if false;
+    function allowed() {
+      return request.auth != null
+          && request.auth.token.email_verified == true
+          && request.auth.token.email in ['gavishori@gmail.com'];
     }
 
-    // Deny everything else by default.
+    match /finance/{docId} {
+      allow read, write: if allowed() && docId in ['data', 'state'];
+    }
+
+    // Everything else (including the old QR-scan records) is closed.
     match /{document=**} {
       allow read, write: if false;
     }

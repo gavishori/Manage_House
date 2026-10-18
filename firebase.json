@@ -1,7 +1,13 @@
 {
   "hosting": {
-    "public": "docs",
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"]
+    "public": "public",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "headers": [
+      { "source": "**", "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex, nofollow" },
+        { "key": "Cache-Control", "value": "no-cache" }
+      ] }
+    ]
   },
   "firestore": {
     "rules": "firestore.rules"
