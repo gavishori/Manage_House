@@ -235,7 +235,7 @@ def main():
         counts=dict(bank=len(bank), card=len(cards), bit=len(bit), slips=len(slips)),
         ledger=ledger, balance=balance, bit=bit, slips=slips,
         config={k: cfg[k] for k in ("title", "household", "categories", "forecast", "fixed_commitments",
-                                    "insights", "learned", "questions")},
+                                    "insights", "learned", "questions", "pension") if k in cfg},
     )
     OUT.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
     print(f"bank {len(bank)} ({b_from}..{b_to}) · card {len(cards)} ({c_from}..{c_to}) · "

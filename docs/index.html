@@ -496,12 +496,14 @@ $('#insList').innerHTML=C.insights.map((x,i)=>`<div class="card"><div class="n">
   $('#payTbl').innerHTML='<thead><tr><th>חודש</th><th class="amt">ברוטו</th><th class="amt">נטו לתשלום</th><th>תוספות</th></tr></thead><tbody>'+
     S.map(s=>`<tr><td>${mLabel(s.month)}</td><td class="amt small">${ils(s.gross||0)}</td><td class="amt">${ils(s.net)}</td><td class="small">${s.extras.map(e=>`${esc(e[0])} ${ils(e[1])}`).join(', ')}</td></tr>`).join('')+
     `</tbody><tfoot><tr><td>חציון</td><td></td><td class="amt">${ils(pensionBase)}</td><td class="small">הבסיס לתקציב</td></tr></tfoot>`;
-  const hiv=S.find(s=>s.hivun)?.hivun, extraNet=sumBy(S,s=>Math.max(0,s.net-pensionBase));
+  const PN=C.pension||{}, hiv=S.find(s=>s.hivun)?.hivun, extraNet=sumBy(S,s=>Math.max(0,s.net-pensionBase));
   $('#payNotes').innerHTML=`<h3>מה רואים בתלוש</h3>
     <p>פנסיה בסיסית של <b>${ils(S[S.length-1].gross)}</b> ברוטו. נטו נכנסים בחודש רגיל כ-<b>${ils(pensionBase)}</b>.</p>
-    ${hiv?`<p>בכל חודש יורד <b>ניכוי היוון של ${ils(hiv)}</b>, המחיר של סכום חד-פעמי שנלקח בעבר. כדאי לברר אם הוא לתקופה מוגבלת.</p>`:''}
+    ${hiv?(PN.hivun_last_month
+      ? `<p><b>ניכוי היוון של ${ils(hiv)}</b> ירד בכל חודש במשך ${PN.hivun_years||''} שנים. ${PN.hivun_last_month<=DATA.today.slice(0,7)?'הניכוי האחרון היה':'הניכוי האחרון יהיה'} ב${MN[+PN.hivun_last_month.slice(5)-1]} ${PN.hivun_last_month.slice(0,4)}, ומהחודש שאחריו הפנסיה עולה בכ-<b>${ils(PN.hivun_net_gain||0)}</b> נטו.</p>`
+      : `<p>בכל חודש יורד <b>ניכוי היוון של ${ils(hiv)}</b>, המחיר של סכום חד-פעמי שנלקח בעבר. כדאי לברר אם הוא לתקופה מוגבלת.</p>`):''}
     <p>החודשים הגבוהים הם תשלומים שנתיים ולא עלייה בפנסיה: ${S.filter(s=>s.extras.length).map(s=>`${s.extras.map(e=>e[0]).join(', ')} ב${MN[+s.month.slice(5)-1]}`).join('; ')}. ביחד הם הוסיפו השנה כ-<b>${ils(extraNet)}</b> נטו מעל הבסיס.</p>
-    <p class="small">מסקנה: לבנות את התקציב רק על ${ils(pensionBase)}, ואת התוספות להעביר לכרית ביטחון.</p>`;
+    <p class="small">מסקנה: לבנות את התקציב על הפנסיה הבסיסית${PN.hivun_net_gain?` (מעכשיו כ-${ils(pensionBase+PN.hivun_net_gain)})`:` (${ils(pensionBase)})`}, ואת התוספות השנתיות להעביר לכרית ביטחון.</p>`;
 })();
 
 // ---------- learned + questions
@@ -537,7 +539,7 @@ $('#bitTbl').innerHTML='<thead><tr><th>תאריך</th><th>תיאור</th><th>מ�
 drawMonth(); drawTx(); showTab();
 };
 </script>
-<script type="module" src="app.js?v=3"></script>
+<script type="module" src="app.js?v=4"></script>
 <script>
 // If the app module fails to load (old cached files, blocked script), say so instead of hanging on "טוען…".
 setTimeout(() => {
