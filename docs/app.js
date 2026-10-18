@@ -6,7 +6,9 @@ import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signO
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig } from "./firebase-config.js";
+// Bump ?v= on every change: GitHub Pages caches files for ~10 minutes, and an old
+// cached firebase-config.js from the previous site broke the module import.
+import { firebaseConfig } from "./firebase-config.js?v=3";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);

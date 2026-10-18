@@ -537,6 +537,15 @@ $('#bitTbl').innerHTML='<thead><tr><th>תאריך</th><th>תיאור</th><th>מ�
 drawMonth(); drawTx(); showTab();
 };
 </script>
-<script type="module" src="app.js"></script>
+<script type="module" src="app.js?v=3"></script>
+<script>
+// If the app module fails to load (old cached files, blocked script), say so instead of hanging on "טוען…".
+setTimeout(() => {
+  const m = document.querySelector('#gateMsg');
+  if (m && m.textContent === 'טוען…' && !document.querySelector('#gate').hidden) {
+    m.innerHTML = 'הטעינה נתקעה. נסו רענון מלא: <b>Ctrl+Shift+R</b> (או Ctrl+F5).';
+  }
+}, 8000);
+</script>
 </body>
 </html>
