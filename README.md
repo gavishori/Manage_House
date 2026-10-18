@@ -103,3 +103,9 @@ because the repo (and its full commit history) is public — required for free
 GitHub Pages. That's presumably fine here since the number is meant to be
 found by prospective buyers anyway, but it's worth being aware the number is
 visible to anyone who looks at the source, not just people who scan the QR.
+
+## Household finance dashboard (private)
+
+`finance/` holds a separate, private household finance dashboard. Only its code
+is committed; all data lives in `finance/private/`, which is git-ignored and is
+never published (it sits outside `docs/`). See [`finance/README.md`](finance/README.md).

@@ -1,3 +1,7 @@
 .firebase/
 node_modules/
 *.log
+
+# Personal finance data: bank/card exports, payslips, answers and the generated dashboard.
+# Never commit; the repo is public and docs/ is published.
+finance/private/

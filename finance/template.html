@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>ניהול הוצאות והכנסות</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme:light;
+  --bg:#f6f5f2; --card:#fcfcfb; --line:#e4e2dc; --grid:#ecebe6;
+  --ink:#0b0b0b; --ink2:#52514e; --muted:#85837d;
+  --in:#2a78d6; --out:#eb6834; --neg:#e34948; --negfill:rgba(227,73,72,.12); --pos:#008300;
+  --accent:#2a78d6; --chip:#eeedea; --warnbg:#fff4e0; --warnink:#7a4b00; --okbg:#e7f4ea; --overbg:#fdecec;
+  --shadow:0 1px 2px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.04);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#121211; --card:#1a1a19; --line:#2c2c2a; --grid:#262624;
+    --ink:#f0efec; --ink2:#c3c2b7; --muted:#8e8d86;
+    --in:#3987e5; --out:#d95926; --neg:#e66767; --negfill:rgba(230,103,103,.16); --pos:#2fa52f;
+    --accent:#3987e5; --chip:#252523; --warnbg:#2e2412; --warnink:#f0c46b; --okbg:#18281b; --overbg:#341a1a;
+    --shadow:none;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#121211; --card:#1a1a19; --line:#2c2c2a; --grid:#262624;
+  --ink:#f0efec; --ink2:#c3c2b7; --muted:#8e8d86;
+  --in:#3987e5; --out:#d95926; --neg:#e66767; --negfill:rgba(230,103,103,.16); --pos:#2fa52f;
+  --accent:#3987e5; --chip:#252523; --warnbg:#2e2412; --warnink:#f0c46b; --okbg:#18281b; --overbg:#341a1a;
+  --shadow:none;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Assistant,"Segoe UI",Arial,sans-serif;font-size:17px;line-height:1.55}
+.wrap{max-width:1100px;margin:0 auto;padding:24px 16px 80px}
+header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+header h1{font-size:30px;margin:0;font-weight:800;letter-spacing:-.3px}
+header p{margin:2px 0 0;color:var(--ink2);font-size:15px}
+nav.tabs{position:sticky;top:0;z-index:5;background:var(--bg);padding:10px 0;margin:16px 0 4px;display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+nav.tabs a{color:var(--ink2);text-decoration:none;padding:6px 14px;border-radius:999px;background:var(--chip);font-size:15px;font-weight:700}
+nav.tabs a.on{background:var(--ink);color:var(--bg)}
+nav.tabs a .dot{display:inline-block;min-width:20px;padding:0 6px;margin-inline-start:6px;border-radius:99px;background:var(--out);color:#fff;font-size:12px;text-align:center}
+section.tab{display:none} section.tab.on{display:block}
+h2{font-size:23px;margin:30px 0 6px;font-weight:800}
+h3{font-size:18px;margin:0 0 8px}
+.sub{color:var(--ink2);margin:0 0 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;box-shadow:var(--shadow)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-top:18px}
+.kpi .lab{color:var(--ink2);font-size:15px}
+.kpi .val{font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.2;margin:4px 0}
+.kpi .note{color:var(--muted);font-size:14px}
+.neg{color:var(--neg)} .pos{color:var(--pos)}
+.alert{background:var(--warnbg);color:var(--warnink);border-radius:14px;padding:16px 20px;margin-top:16px;font-weight:600}
+.alert b{font-weight:800}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:820px){.grid2{grid-template-columns:1fr}}
+.chart{position:relative}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.legend{display:flex;gap:18px;flex-wrap:wrap;font-size:15px;color:var(--ink2);margin-bottom:8px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-inline-end:6px;vertical-align:-1px}
+.tip{position:absolute;pointer-events:none;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:14px;box-shadow:0 6px 20px rgba(0,0,0,.12);white-space:nowrap;display:none;z-index:3}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:right;vertical-align:middle}
+th{color:var(--ink2);font-weight:700;background:var(--card);position:sticky;top:0}
+td.amt,th.amt{font-variant-numeric:tabular-nums;white-space:nowrap;text-align:left}
+td.amt.p{color:var(--pos)}
+tfoot td{font-weight:800;border-top:2px solid var(--ink2)}
+.tblwrap{max-height:560px;overflow:auto;border-radius:10px}
+.small{font-size:14px;color:var(--muted)}
+.row-sec td{background:var(--chip);font-weight:800}
+.flag td{background:var(--warnbg)}
+.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+input[type=search],input[type=number],select{font:inherit;font-size:16px;padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
+input.bud{width:96px;padding:4px 8px;font-size:15px;text-align:left}
+button{font:inherit;font-weight:700;font-size:16px;padding:9px 16px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+button.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+button.sm{font-size:14px;padding:5px 10px}
+.meter{height:10px;background:var(--grid);border-radius:99px;overflow:hidden;min-width:80px}
+.meter span{display:block;height:100%;background:var(--in);border-radius:99px}
+.meter.over span{background:var(--neg)}
+tr.over td{background:var(--overbg)}
+.st{font-size:13px;font-weight:700}
+.bars .row{display:grid;grid-template-columns:minmax(120px,200px) 1fr 92px;align-items:center;gap:10px;padding:5px 0;font-size:15px}
+.bars .bar{height:14px;background:var(--grid);border-radius:4px;overflow:hidden}
+.bars .bar>span{display:block;height:100%;background:var(--out);border-radius:4px 0 0 4px}
+.bars .num{text-align:left;font-variant-numeric:tabular-nums;color:var(--ink2)}
+.ins{display:grid;gap:12px}
+.ins .card{display:grid;grid-template-columns:44px 1fr;gap:14px}
+.ins .n{width:40px;height:40px;border-radius:12px;background:var(--chip);display:grid;place-items:center;font-weight:800;font-size:18px}
+.ins p{margin:4px 0;color:var(--ink2)}
+.pill{display:inline-block;margin-top:6px;margin-inline-end:6px;padding:3px 10px;border-radius:999px;font-weight:700;font-size:14px}
+.pill.save{background:var(--okbg);color:var(--pos)} .pill.tag{background:var(--chip);color:var(--ink2)}
+.q{margin-bottom:12px}
+.q .qh{display:flex;gap:10px;align-items:baseline;justify-content:space-between;flex-wrap:wrap}
+.q .amtq{color:var(--ink2);font-size:15px}
+.q p{margin:6px 0 10px;color:var(--ink2)}
+.q textarea{width:100%;min-height:64px;font:inherit;font-size:16px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);resize:vertical}
+.q.done{border-color:color-mix(in srgb,var(--pos) 45%,var(--line))}
+.q .st{color:var(--muted)} .q.done .st{color:var(--pos)}
+.qbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 14px}
+.prog{flex:1;min-width:160px;height:8px;background:var(--grid);border-radius:99px;overflow:hidden}
+.prog span{display:block;height:100%;background:var(--pos);width:0}
+.switch{display:inline-flex;gap:8px;align-items:center;font-weight:600;color:var(--ink2);cursor:pointer}
+.foot{margin-top:40px}
+@media (max-width:560px){
+  body{font-size:16px} header h1{font-size:25px}
+  .bars .row{grid-template-columns:110px 1fr 78px;font-size:14px}
+  .ins .card{grid-template-columns:1fr}
+  .hide-sm{display:none}
+  #budTbl{font-size:14px} #budTbl td,#budTbl th{padding:6px 4px}
+  input.bud{width:64px;padding:3px 5px;font-size:14px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div>
+    <h1 id="title"></h1>
+    <p id="srcLine"></p>
+  </div>
+  <button class="sm" id="theme" type="button">מצב כהה/בהיר</button>
+</header>
+
+<nav class="tabs" id="tabs">
+  <a href="#overview">סקירה</a>
+  <a href="#month">החודש</a>
+  <a href="#fixed">התחייבויות קבועות</a>
+  <a href="#insights">תובנות</a>
+  <a href="#pension">פנסיה</a>
+  <a href="#questions">שאלות</a>
+  <a href="#tx">כל התנועות</a>
+</nav>
+
+<!-- ================= overview ================= -->
+<section class="tab" id="overview">
+  <div class="kpis">
+    <div class="card kpi"><div class="lab">יתרה בעו״ש</div><div class="val" id="k-now"></div><div class="note" id="k-now2"></div></div>
+    <div class="card kpi"><div class="lab">ימים במינוס</div><div class="val neg" id="k-neg"></div><div class="note" id="k-neg2"></div></div>
+    <div class="card kpi"><div class="lab">הכנסה קבועה צפויה</div><div class="val" id="k-in"></div><div class="note" id="k-in2"></div></div>
+    <div class="card kpi"><div class="lab">הוצאה חודשית צפויה</div><div class="val" id="k-out"></div><div class="note">לפי ממוצע החודשים המלאים, מעודכן לשכירות ולליסינג</div></div>
+  </div>
+  <div class="alert" id="bottomLine"></div>
+
+  <h2>תחזית לחודש רגיל</h2>
+  <p class="sub">מה צפוי להיכנס ולצאת בחודש רגיל, בלי סכומים חד-פעמיים. אפשר לראות את התחזית עם ההעברה מהעסק ובלעדיה.</p>
+  <div class="card">
+    <label class="switch"><input type="checkbox" id="bizToggle" checked> <span id="bizLbl"></span></label>
+    <div class="grid2" style="margin-top:12px">
+      <table id="fcIn"></table>
+      <table id="fcOut"></table>
+    </div>
+  </div>
+
+  <h2>היתרה בחשבון לאורך זמן</h2>
+  <p class="sub">יתרה בסוף כל יום. האזור האדום הוא מינוס. רחפו עם העכבר כדי לראות את התנועות של אותו יום.</p>
+  <div class="card chart" id="balChart"><div class="tip"></div></div>
+
+  <h2>הכנסות מול הוצאות, לפי חודש</h2>
+  <p class="sub">בלי סכומים חד-פעמיים ובלי כסף שרק עובר דרככם. חודשים חלקיים מסומנים ב-*.</p>
+  <div class="card chart" id="monChart">
+    <div class="legend"><span><i style="background:var(--in)"></i>הכנסות</span><span><i style="background:var(--out)"></i>הוצאות</span></div>
+    <div class="tip"></div>
+  </div>
+
+  <h2>לאן הולך הכסף</h2>
+  <p class="sub" id="whereSub"></p>
+  <div class="card bars" id="catBars"></div>
+</section>
+
+<!-- ================= month ================= -->
+<section class="tab" id="month">
+  <h2>ניהול חודשי</h2>
+  <p class="sub">בחרו חודש כדי לראות את ההוצאה בפועל מול התקציב. חיובי כרטיס מוצגים לפי מועד החיוב. את התקציב אפשר לשנות בכל שורה, והוא נשמר בדפדפן.</p>
+  <div class="filters">
+    <select id="mSel"></select>
+    <span class="small" id="mNote"></span>
+    <button class="sm" id="budReset" type="button">החזר תקציב מומלץ</button>
+  </div>
+  <div class="kpis" style="margin-top:0">
+    <div class="card kpi"><div class="lab">נכנס החודש</div><div class="val pos" id="m-in"></div><div class="note" id="m-in2"></div></div>
+    <div class="card kpi"><div class="lab">יצא החודש</div><div class="val" id="m-out"></div><div class="note" id="m-out2"></div></div>
+    <div class="card kpi"><div class="lab">מאזן</div><div class="val" id="m-net"></div><div class="note">בלי סכומים חד-פעמיים</div></div>
+    <div class="card kpi"><div class="lab">ניצול התקציב</div><div class="val" id="m-bud"></div><div class="note" id="m-bud2"></div></div>
+  </div>
+  <h2>הוצאות מול תקציב</h2>
+  <div class="card"><div class="tblwrap" style="max-height:none"><table id="budTbl"></table></div></div>
+  <div class="grid2" style="margin-top:14px">
+    <div class="card"><h3>15 החיובים הגדולים החודש</h3><table id="mTop"></table></div>
+    <div class="card"><h3>חד-פעמי וכסף שעובר דרככם</h3><table id="mOne"></table><p class="small" style="margin-top:8px">התנועות האלה לא נספרות במאזן החודשי.</p></div>
+  </div>
+</section>
+
+<!-- ================= fixed ================= -->
+<section class="tab" id="fixed">
+  <h2>התחייבויות קבועות</h2>
+  <p class="sub">הוראות קבע ומנויים שיורדים כל חודש בלי שמחליטים מחדש. השורות המסומנות ⚑ הן הראשונות לבדיקה.</p>
+  <div class="card"><div class="tblwrap" style="max-height:none"><table id="recTbl"></table></div></div>
+</section>
+
+<!-- ================= insights ================= -->
+<section class="tab" id="insights">
+  <h2>מה אפשר לעשות כדי שיישאר יותר כסף</h2>
+  <p class="sub">לפי סדר ההשפעה. החיסכון המשוער שמרני.</p>
+  <div class="ins" id="insList"></div>
+</section>
+
+<!-- ================= pension ================= -->
+<section class="tab" id="pension">
+  <h2>הפנסיה</h2>
+  <p class="sub">מתוך התלושים. ה״משכורת״ שנכנסת לחשבון הבנק בסוף כל חודש היא הפנסיה.</p>
+  <div class="grid2">
+    <div class="card"><table id="payTbl"></table></div>
+    <div class="card" id="payNotes"></div>
+  </div>
+</section>
+
+<!-- ================= questions ================= -->
+<section class="tab" id="questions">
+  <h2>מה כבר ברור</h2>
+  <div class="card"><table id="learnTbl"></table></div>
+  <h2>שאלות פתוחות</h2>
+  <p class="sub">התשובה נשמרת אוטומטית בדפדפן הזה. בסוף לחצו ״העתק את כל התשובות״ והדביקו ל-Claude, כדי שיעדכן את הכללים, התובנות והתקציב.</p>
+  <div class="qbar">
+    <button class="pri" id="copyBtn" type="button">העתק את כל התשובות</button>
+    <button id="dlBtn" type="button">הורד כקובץ טקסט</button>
+    <div class="prog"><span id="progBar"></span></div>
+    <span class="small" id="progTxt"></span>
+  </div>
+  <div id="qList"></div>
+</section>
+
+<!-- ================= transactions ================= -->
+<section class="tab" id="tx">
+  <h2>כל התנועות</h2>
+  <p class="sub">תנועות הבנק, ובמקום החיוב הכולל של כרטיס האשראי, כל עסקה בנפרד. bit מופיע בנפרד למטה.</p>
+  <div class="card">
+    <div class="filters">
+      <select id="txM"><option value="">כל החודשים</option></select>
+      <select id="txC"><option value="">כל הקטגוריות</option></select>
+      <select id="txS"><option value="">כל המקורות</option><option value="bank">בנק</option><option value="card">כרטיסי מקס</option></select>
+      <input type="search" id="txQ" placeholder="חיפוש…">
+      <span class="small" id="txSum"></span>
+    </div>
+    <div class="tblwrap"><table id="txTbl"></table></div>
+  </div>
+  <h2>bit</h2>
+  <div class="card"><div class="tblwrap" style="max-height:360px"><table id="bitTbl"></table></div></div>
+</section>
+
+<p class="small foot" id="foot"></p>
+</div>
+
+<script>
+const DATA = /*DATA*/null;
+const C = DATA.config, CAT = C.categories, L = DATA.ledger;
+
+// ---------- helpers
+const $ = s => document.querySelector(s);
+const fmt = n => '⁦' + (n<0?'−':'') + Math.round(Math.abs(n)).toLocaleString('he-IL') + '⁩';
+const ils = n => fmt(n) + ' ₪';
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const dmy = d => d.slice(8,10)+'.'+d.slice(5,7);
+const MN = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+const mLabel = m => MN[+m.slice(5)-1] + ' ' + m.slice(0,4);
+const mShort = m => MN[+m.slice(5)-1].slice(0,3);
+const kind = c => (CAT[c]||{kind:'expense'}).kind;
+const isRegular = c => kind(c)==='income' || kind(c)==='expense';
+const store = { get(k,d){ try{const v=localStorage.getItem(k); return v==null?d:JSON.parse(v);}catch(e){return d;} },
+                set(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){} } };
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const SVGNS='http://www.w3.org/2000/svg';
+function el(tag, attrs, parent){const e=document.createElementNS(SVGNS,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); parent&&parent.appendChild(e); return e;}
+const median = a => { const s=[...a].sort((x,y)=>x-y); return s.length? s[Math.floor(s.length/2)] : 0; };
+
+// ---------- months & coverage
+const bankFrom = DATA.coverage.bank[0], bankTo = DATA.coverage.bank[1];
+const months = [...new Set(L.map(t=>t.d.slice(0,7)))].sort();
+const lastDay = m => { const [y,mo]=m.split('-').map(Number); return new Date(y,mo,0).getDate(); };
+const isFull = m => bankFrom <= m+'-01' && bankTo >= m+'-'+String(lastDay(m)).padStart(2,'0');
+const fullMonths = months.filter(isFull);
+const sumBy = (rows, f) => rows.reduce((a,t)=>a+f(t),0);
+
+// ---------- header
+$('#title').textContent = C.title;
+document.title = C.title;
+$('#srcLine').textContent = `${C.household} · בנק ${dmy(bankFrom)}.${bankFrom.slice(2,4)}–${dmy(bankTo)}.${bankTo.slice(2,4)} · ${DATA.counts.card} עסקאות אשראי · ${DATA.counts.slips} תלושים · עודכן ${DATA.generated}`;
+$('#foot').textContent = 'הדף נבנה מהקבצים בתיקייה finance/private/raw ונשמר רק במחשב הזה. הקטגוריות נקבעות לפי הכללים ב-config.json. זה כלי לסדר את התמונה, לא ייעוץ פיננסי.';
+
+// ---------- theme
+(function(){
+  const root=document.documentElement, t=store.get('mh-theme',null); if(t) root.dataset.theme=t;
+  $('#theme').onclick=()=>{
+    const dark = root.dataset.theme ? root.dataset.theme==='dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    root.dataset.theme = dark?'light':'dark'; store.set('mh-theme',root.dataset.theme); drawCharts();
+  };
+})();
+
+// ---------- tabs
+function showTab(){
+  const id=(location.hash||'#overview').slice(1);
+  document.querySelectorAll('section.tab').forEach(s=>s.classList.toggle('on', s.id===id));
+  document.querySelectorAll('#tabs a').forEach(a=>a.classList.toggle('on', a.getAttribute('href')==='#'+id));
+  if(id==='overview') drawCharts();
+  scrollTo(0,0);
+}
+addEventListener('hashchange', showTab);
+
+// ---------- forecast
+const avgCat = c => sumBy(L.filter(t=>t.cat===c && fullMonths.includes(t.d.slice(0,7))), t=>t.amt) / Math.max(1, fullMonths.length);
+const pensionBase = median(DATA.slips.map(s=>s.net));
+const BIZ = C.forecast.income['העברה מהעסק'] || 0;
+$('#bizLbl').textContent = `העסק מעביר ${ils(BIZ)} בחודש`;
+function forecast(withBiz){
+  const inc = Object.entries(C.forecast.income)
+    .filter(([c])=>withBiz || c!=='העברה מהעסק')
+    .map(([c,v])=>[c, v==='median_payslip' ? pensionBase : v]);
+  const ov = C.forecast.expense_overrides;
+  const out = Object.keys(CAT).filter(c=>kind(c)==='expense')
+    .map(c=>[c, c in ov ? ov[c] : -avgCat(c)]).filter(r=>Math.round(r[1])>0).sort((a,b)=>b[1]-a[1]);
+  return {inc, out, tin: sumBy(inc,r=>r[1]), tout: sumBy(out,r=>r[1])};
+}
+function drawForecast(){
+  const f = forecast($('#bizToggle').checked);
+  const tbl = (rows, title, tot) => `<thead><tr><th>${title}</th><th class="amt">לחודש</th></tr></thead><tbody>`+
+    rows.map(r=>`<tr><td>${esc(r[0])}${r[0] in C.forecast.expense_overrides || r[0] in C.forecast.income ? ' <span class="small">(קבוע)</span>':''}</td><td class="amt">${ils(r[1])}</td></tr>`).join('')+
+    `</tbody><tfoot><tr><td>סה״כ</td><td class="amt">${ils(tot)}</td></tr></tfoot>`;
+  $('#fcIn').innerHTML = tbl(f.inc,'נכנס',f.tin);
+  $('#fcOut').innerHTML = tbl(f.out,'יוצא',f.tout) + `<tfoot><tr><td>הפרש</td><td class="amt ${f.tin-f.tout<0?'neg':'pos'}">${ils(f.tin-f.tout)}</td></tr></tfoot>`;
+}
+$('#bizToggle').onchange = drawForecast;
+
+// ---------- KPIs + bottom line
+(function(){
+  const B = DATA.balance, now = B[B.length-1], neg = B.filter(b=>b[1]<0).length, mn = B.reduce((a,b)=>b[1]<a[1]?b:a);
+  $('#k-now').textContent = ils(now[1]); $('#k-now').classList.toggle('neg', now[1]<0);
+  $('#k-now2').textContent = `נכון ל-${dmy(now[0])}. הנמוכה ביותר: ${ils(mn[1])} (${dmy(mn[0])})`;
+  $('#k-neg').textContent = `${neg} מתוך ${B.length}`;
+  $('#k-neg2').textContent = `${Math.round(neg/B.length*100)}% מהימים. ריבית חובה: ${ils(-sumBy(L.filter(t=>t.desc==='ריבית'),t=>t.amt))}`;
+  const a = forecast(true), b = forecast(false);
+  $('#k-in').textContent = ils(b.tin); $('#k-in2').textContent = `הפנסיה בלבד. עם העברה מהעסק: ${ils(a.tin)}`;
+  $('#k-out').textContent = ils(a.tout);
+  const round = n => Math.round(n/500)*500;
+  $('#bottomLine').innerHTML = `<b>השורה התחתונה:</b> בחודש רגיל צפויות הוצאות של כ-<b>${ils(round(a.tout))}</b>.
+    אם העסק מעביר ${ils(BIZ)}, חסרים כ-<b>${ils(round(a.tout-a.tin))}</b> בחודש. אם לא, חסרים כ-<b>${ils(round(b.tout-b.tin))}</b>.
+    את הפער השנה מימנו מכירת רכב וקרן השתלמות, והכסף הזה נגמר. הצעדים שיכולים לסגור את הפער מסודרים בלשונית <a href="#insights">תובנות</a>.`;
+  drawForecast();
+})();
+
+// ---------- charts
+function drawBalance(){
+  const host=$('#balChart'), S=DATA.balance; host.querySelector('svg')?.remove();
+  if(!host.clientWidth) return;
+  const W=Math.max(320,host.clientWidth-40), H=300, padL=8, padR=56, padT=10, padB=28;
+  const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,role:'img','aria-label':'גרף היתרה היומית'}); host.insertBefore(svg, host.firstChild);
+  const vals=S.map(s=>s[1]), step=15000;
+  const lo=Math.floor(Math.min(0,...vals)/step)*step, hi=Math.ceil(Math.max(0,...vals)/step)*step;
+  const x=i=>W-padR-(i/(S.length-1))*(W-padL-padR), y=v=>padT+(hi-v)/(hi-lo)*(H-padT-padB);
+  for(let v=lo; v<=hi; v+=step){
+    el('line',{x1:padL,x2:W-padR,y1:y(v),y2:y(v),stroke:v===0?css('--ink2'):css('--grid')},svg);
+    el('text',{x:W-padR+6,y:y(v)+4,'font-size':12,fill:css('--muted'),'text-anchor':'start',direction:'ltr'},svg).textContent=(v<0?'−':'')+Math.abs(v/1000)+'K';
+  }
+  S.forEach((s,i)=>{ if(s[0].endsWith('-01')) el('text',{x:x(i),y:H-8,'font-size':12,fill:css('--muted'),'text-anchor':'middle'},svg).textContent=mShort(s[0].slice(0,7)); });
+  const cp=el('clipPath',{id:'cneg'},el('defs',{},svg)); el('rect',{x:0,y:y(0),width:W,height:H},cp);
+  el('path',{d:`M${x(0)},${y(0)} `+S.map((s,i)=>`L${x(i)},${y(s[1])}`).join(' ')+` L${x(S.length-1)},${y(0)} Z`,fill:css('--negfill'),'clip-path':'url(#cneg)'},svg);
+  el('path',{d:'M'+S.map((s,i)=>`${x(i)},${y(s[1])}`).join(' L'),fill:'none',stroke:css('--in'),'stroke-width':2,'stroke-linejoin':'round'},svg);
+  const tip=host.querySelector('.tip'), g=el('g',{style:'display:none'},svg);
+  const vl=el('line',{y1:padT,y2:H-padB,stroke:css('--ink2'),'stroke-dasharray':'3 3'},g), dot=el('circle',{r:5,fill:css('--in'),stroke:css('--card'),'stroke-width':2},g);
+  const ov=el('rect',{x:padL,y:0,width:W-padL-padR,height:H,fill:'transparent'},svg);
+  ov.addEventListener('mousemove',ev=>{
+    const r=svg.getBoundingClientRect(), px=(ev.clientX-r.left)*W/r.width;
+    const i=Math.max(0,Math.min(S.length-1,Math.round((W-padR-px)/(W-padL-padR)*(S.length-1)))), s=S[i];
+    g.style.display=''; vl.setAttribute('x1',x(i)); vl.setAttribute('x2',x(i)); dot.setAttribute('cx',x(i)); dot.setAttribute('cy',y(s[1]));
+    const day=L.filter(t=>t.d===s[0]&&t.src==='bank').sort((a,b)=>Math.abs(b.amt)-Math.abs(a.amt)).slice(0,3);
+    tip.innerHTML=`${dmy(s[0])}<br><b>${ils(s[1])}</b>`+day.map(t=>`<br><span class="small">${esc(t.desc.slice(0,28))}: ${ils(t.amt)}</span>`).join('');
+    tip.style.display='block'; const hr=host.getBoundingClientRect(); let lx=ev.clientX-hr.left+14; if(lx>hr.width-230) lx=ev.clientX-hr.left-240;
+    tip.style.left=lx+'px'; tip.style.top=(ev.clientY-hr.top-10)+'px';
+  });
+  ov.addEventListener('mouseleave',()=>{g.style.display='none';tip.style.display='none'});
+}
+const monData = months.map(m=>{
+  const ts=L.filter(t=>t.d.startsWith(m) && isRegular(t.cat));
+  return {m, inc:sumBy(ts.filter(t=>kind(t.cat)==='income'),t=>t.amt), out:-sumBy(ts.filter(t=>kind(t.cat)==='expense'),t=>t.amt), full:isFull(m)};
+});
+function drawMonthly(){
+  const host=$('#monChart'); host.querySelector('svg')?.remove();
+  if(!host.clientWidth) return;
+  const W=Math.max(320,host.clientWidth-40), H=280, padR=48, padL=8, padT=10, padB=28;
+  const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,role:'img','aria-label':'הכנסות מול הוצאות לפי חודש'}); host.insertBefore(svg, host.querySelector('.tip'));
+  const mx=Math.ceil(Math.max(...monData.map(d=>Math.max(d.inc,d.out)))/10000)*10000, y=v=>padT+(1-v/mx)*(H-padT-padB);
+  for(let v=0; v<=mx; v+=10000){ el('line',{x1:padL,x2:W-padR,y1:y(v),y2:y(v),stroke:v===0?css('--ink2'):css('--grid')},svg); el('text',{x:W-padR+6,y:y(v)+4,'font-size':12,fill:css('--muted'),'text-anchor':'start',direction:'ltr'},svg).textContent=(v/1000)+'K'; }
+  const n=monData.length, slot=(W-padL-padR)/n, bw=Math.min(26,slot*.32), tip=host.querySelector('.tip');
+  monData.forEach((d,i)=>{
+    const cx=W-padR-slot*(i+.5);
+    [['inc','--in',cx+1+bw/2],['out','--out',cx-1-bw/2]].forEach(([k,c,bx])=>{
+      const top=y(d[k]); if(d[k]<=0) return;
+      el('path',{d:`M${bx-bw/2},${y(0)} V${Math.min(top+4,y(0))} q0,-4 4,-4 H${bx+bw/2-4} q4,0 4,4 V${y(0)} Z`,fill:css(c)},svg);
+    });
+    el('text',{x:cx,y:H-8,'font-size':13,fill:css('--ink2'),'text-anchor':'middle'},svg).textContent=mShort(d.m)+(d.full?'':'*');
+    const hit=el('rect',{x:cx-slot/2,y:0,width:slot,height:H-padB,fill:'transparent',style:'cursor:pointer'},svg);
+    hit.addEventListener('mousemove',ev=>{const diff=d.inc-d.out; tip.innerHTML=`<b>${mLabel(d.m)}</b>${d.full?'':' (חלקי)'}<br>הכנסות: <b>${ils(d.inc)}</b><br>הוצאות: <b>${ils(d.out)}</b><br>הפרש: <b style="color:${diff<0?css('--neg'):css('--pos')}">${ils(diff)}</b><br><span class="small">לחצו לפירוט החודש</span>`; tip.style.display='block'; const hr=host.getBoundingClientRect(); let lx=ev.clientX-hr.left+14; if(lx>hr.width-190) lx=ev.clientX-hr.left-200; tip.style.left=lx+'px'; tip.style.top=(ev.clientY-hr.top-10)+'px';});
+    hit.addEventListener('mouseleave',()=>tip.style.display='none');
+    hit.addEventListener('click',()=>{ $('#mSel').value=d.m; drawMonth(); location.hash='#month'; });
+  });
+}
+function drawCharts(){ drawBalance(); drawMonthly(); }
+let rt; addEventListener('resize',()=>{clearTimeout(rt); rt=setTimeout(drawCharts,150)});
+
+// where-the-money-goes bars (full months average)
+(function(){
+  $('#whereSub').textContent = `ממוצע לחודש לפי קטגוריה, על פני ${fullMonths.length} החודשים המלאים (${mShort(fullMonths[0])}–${mShort(fullMonths[fullMonths.length-1])}). לחיצה על קטגוריה מציגה את התנועות שלה.`;
+  const rows=Object.keys(CAT).filter(c=>kind(c)==='expense').map(c=>[c,-avgCat(c)]).filter(r=>r[1]>1).sort((a,b)=>b[1]-a[1]);
+  const mx=rows[0][1];
+  $('#catBars').innerHTML=rows.map(([c,v])=>`<div class="row" style="cursor:pointer" data-c="${esc(c)}" title="${esc(c)}: ${ils(v)} לחודש"><div>${esc(c)}</div><div class="bar"><span style="width:${v/mx*100}%"></span></div><div class="num">${ils(v)}</div></div>`).join('');
+  $('#catBars').onclick=e=>{const r=e.target.closest('.row'); if(!r) return; $('#txC').value=r.dataset.c; $('#txM').value=''; drawTx(); location.hash='#tx';};
+})();
+
+// ---------- month view with budgets
+const BUD_KEY='mh-budgets-v1';
+let budgets = store.get(BUD_KEY, {});
+const budgetOf = c => c in budgets ? budgets[c] : (CAT[c].budget||0);
+months.slice().reverse().forEach(m=>{
+  const o=document.createElement('option'); o.value=m;
+  o.textContent=mLabel(m)+(m>DATA.today.slice(0,7)?' (חיובים עתידיים)':isFull(m)?'':' (חלקי)');
+  $('#mSel').appendChild(o); $('#txM').appendChild(o.cloneNode(true));
+});
+$('#mSel').value = fullMonths[fullMonths.length-1] || months[months.length-1];
+function drawMonth(){
+  const m=$('#mSel').value, rows=L.filter(t=>t.d.startsWith(m));
+  $('#mNote').textContent = isFull(m) ? '' : 'חודש חלקי: הנתונים מכסים רק חלק מהחודש';
+  const reg=rows.filter(t=>isRegular(t.cat));
+  const inc=sumBy(reg.filter(t=>kind(t.cat)==='income'),t=>t.amt), out=-sumBy(reg.filter(t=>kind(t.cat)==='expense'),t=>t.amt);
+  $('#m-in').textContent=ils(inc); $('#m-out').textContent=ils(out);
+  $('#m-in2').textContent=`מתוכם פנסיה ${ils(sumBy(reg.filter(t=>t.cat==='פנסיה'),t=>t.amt))}`;
+  const cardOut=-sumBy(reg.filter(t=>t.src==='card'),t=>t.amt);
+  $('#m-out2').textContent=`מתוכם בכרטיסי מקס ${ils(cardOut)}`;
+  $('#m-net').textContent=ils(inc-out); $('#m-net').className='val '+(inc-out<0?'neg':'pos');
+  const cats=Object.keys(CAT).filter(c=>kind(c)==='expense');
+  let tb=0, ta=0, over=0;
+  const lines=cats.map(c=>{const a=-sumBy(rows.filter(t=>t.cat===c),t=>t.amt), b=budgetOf(c); tb+=b; ta+=a; if(b>0&&a>b) over++; return {c,a,b};})
+    .filter(r=>Math.round(r.a)!==0||r.b>0).sort((x,y)=>(y.a-y.b>0)-(x.a-x.b>0) || y.a-x.a);
+  $('#m-bud').textContent=tb?Math.round(ta/tb*100)+'%':'—'; $('#m-bud').className='val '+(ta>tb?'neg':'');
+  $('#m-bud2').textContent=`${over} קטגוריות מעל התקציב · תקציב כולל ${ils(tb)}`;
+  $('#budTbl').innerHTML='<thead><tr><th>קטגוריה</th><th class="amt">בפועל</th><th class="amt">תקציב</th><th class="hide-sm" style="width:28%">ניצול</th><th class="amt">נשאר</th></tr></thead><tbody>'+
+    lines.map(r=>{const pct=r.b?Math.min(100,r.a/r.b*100):(r.a>0?100:0), ov=r.a>r.b; return `<tr class="${ov?'over':''}"><td><a href="#tx" data-c="${esc(r.c)}" class="catlink" style="color:inherit">${esc(r.c)}</a>${CAT[r.c].fixed?' <span class="small">קבוע</span>':''}</td><td class="amt">${ils(r.a)}</td><td class="amt"><input class="bud" type="number" min="0" step="50" data-c="${esc(r.c)}" value="${r.b}"></td><td class="hide-sm"><div class="meter ${ov?'over':''}"><span style="width:${pct}%"></span></div></td><td class="amt ${ov?'neg':''}">${ils(r.b-r.a)}</td></tr>`;}).join('')+
+    `</tbody><tfoot><tr><td>סה״כ</td><td class="amt">${ils(ta)}</td><td class="amt">${ils(tb)}</td><td class="hide-sm"></td><td class="amt ${ta>tb?'neg':''}">${ils(tb-ta)}</td></tr></tfoot>`;
+  document.querySelectorAll('#budTbl input.bud').forEach(inp=>inp.onchange=()=>{budgets[inp.dataset.c]=Math.max(0,+inp.value||0); store.set(BUD_KEY,budgets); drawMonth();});
+  document.querySelectorAll('#budTbl .catlink').forEach(a=>a.onclick=()=>{$('#txC').value=a.dataset.c; $('#txM').value=m; drawTx();});
+  const top=reg.filter(t=>t.amt<0).sort((a,b)=>a.amt-b.amt).slice(0,15);
+  $('#mTop').innerHTML='<tbody>'+top.map(t=>`<tr><td class="small">${dmy(t.d)}</td><td>${esc(t.desc)}<div class="small">${esc(t.cat)}</div></td><td class="amt">${ils(t.amt)}</td></tr>`).join('')+'</tbody>';
+  const one=rows.filter(t=>!isRegular(t.cat));
+  $('#mOne').innerHTML=one.length?'<tbody>'+one.map(t=>`<tr><td class="small">${dmy(t.d)}</td><td>${esc(t.desc)}<div class="small">${esc(t.cat)}</div></td><td class="amt ${t.amt>0?'p':''}">${t.amt>0?'+':''}${ils(t.amt)}</td></tr>`).join('')+'</tbody>':'<tbody><tr><td class="small">אין החודש</td></tr></tbody>';
+}
+$('#mSel').onchange=drawMonth;
+$('#budReset').onclick=()=>{ if(confirm('להחזיר את כל התקציבים לערכים המומלצים?')){ budgets={}; store.set(BUD_KEY,budgets); drawMonth(); } };
+
+// ---------- fixed commitments
+(function(){
+  let html='<thead><tr><th>מה</th><th class="amt">לחודש</th><th class="amt hide-sm">לשנה</th><th>הערה</th></tr></thead><tbody>', grand=0;
+  C.fixed_commitments.forEach(([sec,rows])=>{
+    const st=sumBy(rows,r=>r[1]); grand+=st;
+    html+=`<tr class="row-sec"><td colspan="4">${esc(sec)} · ${ils(st)} לחודש</td></tr>`;
+    rows.forEach(r=>html+=`<tr class="${r[3]?'flag':''}"><td>${r[3]?'⚑ ':''}${esc(r[0])}</td><td class="amt">${ils(r[1])}</td><td class="amt small hide-sm">${ils(r[1]*12)}</td><td class="small">${esc(r[2])}</td></tr>`);
+  });
+  html+=`</tbody><tfoot><tr><td>סה״כ התחייבויות קבועות</td><td class="amt">${ils(grand)}</td><td class="amt hide-sm">${ils(grand*12)}</td><td class="small">לפני סופר, דלק, ביגוד ושאר ההוצאות המשתנות</td></tr></tfoot>`;
+  $('#recTbl').innerHTML=html;
+})();
+
+// ---------- insights
+$('#insList').innerHTML=C.insights.map((x,i)=>`<div class="card"><div class="n">${i+1}</div><div><h3>${esc(x.t)}</h3>${x.p.map(p=>`<p>${esc(p)}</p>`).join('')}${x.save?`<span class="pill save">${esc(x.save)}</span>`:''}${x.tag?`<span class="pill tag">${esc(x.tag)}</span>`:''}</div></div>`).join('');
+
+// ---------- pension
+(function(){
+  const S=DATA.slips; if(!S.length){ $('#payTbl').innerHTML='<tbody><tr><td class="small">אין תלושים בתיקייה</td></tr></tbody>'; return; }
+  $('#payTbl').innerHTML='<thead><tr><th>חודש</th><th class="amt">ברוטו</th><th class="amt">נטו לתשלום</th><th>תוספות</th></tr></thead><tbody>'+
+    S.map(s=>`<tr><td>${mLabel(s.month)}</td><td class="amt small">${ils(s.gross||0)}</td><td class="amt">${ils(s.net)}</td><td class="small">${s.extras.map(e=>`${esc(e[0])} ${ils(e[1])}`).join(', ')}</td></tr>`).join('')+
+    `</tbody><tfoot><tr><td>חציון</td><td></td><td class="amt">${ils(pensionBase)}</td><td class="small">הבסיס לתקציב</td></tr></tfoot>`;
+  const hiv=S.find(s=>s.hivun)?.hivun, extraNet=sumBy(S,s=>Math.max(0,s.net-pensionBase));
+  $('#payNotes').innerHTML=`<h3>מה רואים בתלוש</h3>
+    <p>פנסיה בסיסית של <b>${ils(S[S.length-1].gross)}</b> ברוטו. נטו נכנסים בחודש רגיל כ-<b>${ils(pensionBase)}</b>.</p>
+    ${hiv?`<p>בכל חודש יורד <b>ניכוי היוון של ${ils(hiv)}</b>, המחיר של סכום חד-פעמי שנלקח בעבר. כדאי לברר אם הוא לתקופה מוגבלת.</p>`:''}
+    <p>החודשים הגבוהים הם תשלומים שנתיים ולא עלייה בפנסיה: ${S.filter(s=>s.extras.length).map(s=>`${s.extras.map(e=>e[0]).join(', ')} ב${MN[+s.month.slice(5)-1]}`).join('; ')}. ביחד הם הוסיפו השנה כ-<b>${ils(extraNet)}</b> נטו מעל הבסיס.</p>
+    <p class="small">מסקנה: לבנות את התקציב רק על ${ils(pensionBase)}, ואת התוספות להעביר לכרית ביטחון.</p>`;
+})();
+
+// ---------- learned + questions
+$('#learnTbl').innerHTML='<tbody>'+C.learned.map(r=>`<tr><td style="width:34%;font-weight:600">${esc(r[0])}</td><td>${esc(r[1])}</td></tr>`).join('')+'</tbody>';
+const ANS_KEY='mh-fin-answers-r2';
+let ANS=store.get(ANS_KEY,{});
+$('#qList').innerHTML=C.questions.map((q,i)=>`<div class="card q" id="q-${q.id}"><div class="qh"><h3>${i+1}. ${esc(q.t)}</h3><span class="st"></span></div>${q.a?`<div class="amtq">${esc(q.a)}</div>`:''}<p>${esc(q.p)}</p><textarea data-id="${q.id}" placeholder="התשובה שלך…"></textarea></div>`).join('');
+function refreshQ(){
+  let done=0; C.questions.forEach(q=>{const has=(ANS[q.id]||'').trim().length>0; done+=has; const c=$('#q-'+q.id); c.classList.toggle('done',has); c.querySelector('.st').textContent=has?'✓ נענה':'ממתין לתשובה';});
+  $('#progBar').style.width=(done/C.questions.length*100)+'%'; $('#progTxt').textContent=`${done} מתוך ${C.questions.length} נענו`;
+  const open=C.questions.length-done, a=document.querySelector('#tabs a[href="#questions"]');
+  a.innerHTML='שאלות'+(open?`<span class="dot">${open}</span>`:'');
+}
+document.querySelectorAll('#qList textarea').forEach(ta=>{ ta.value=ANS[ta.dataset.id]||''; ta.oninput=()=>{ANS[ta.dataset.id]=ta.value; store.set(ANS_KEY,ANS); refreshQ();}; });
+refreshQ();
+const answersText=()=>'תשובות לשאלות בדף ניהול ההוצאות:\n\n'+C.questions.map((q,i)=>`${i+1}. ${q.t}\n← ${(ANS[q.id]||'').trim()||'(אין תשובה עדיין)'}`).join('\n\n');
+$('#copyBtn').onclick=async()=>{const t=answersText(); try{await navigator.clipboard.writeText(t);}catch(e){const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();} $('#copyBtn').textContent='הועתק ✓'; setTimeout(()=>$('#copyBtn').textContent='העתק את כל התשובות',2000);};
+$('#dlBtn').onclick=()=>{const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([answersText()],{type:'text/plain;charset=utf-8'})); a.download='תשובות-ניהול-הוצאות.txt'; a.click();};
+
+// ---------- transactions
+[...new Set(L.map(t=>t.cat))].sort().forEach(c=>{const o=document.createElement('option'); o.textContent=c; $('#txC').appendChild(o);});
+function drawTx(){
+  const m=$('#txM').value, c=$('#txC').value, s=$('#txS').value, q=$('#txQ').value.trim();
+  const rows=L.filter(t=>(!m||t.d.startsWith(m))&&(!c||t.cat===c)&&(!s||t.src===s)&&(!q||t.desc.includes(q)||t.cat.includes(q)||(t.note||'').includes(q))).slice().reverse();
+  $('#txSum').textContent=`${rows.length} תנועות · נטו ${ils(sumBy(rows,t=>t.amt))}`;
+  $('#txTbl').innerHTML='<thead><tr><th>תאריך</th><th>תיאור</th><th class="hide-sm">קטגוריה</th><th class="amt">סכום</th></tr></thead><tbody>'+
+    rows.slice(0,800).map(t=>`<tr><td class="small">${dmy(t.d)}</td><td>${esc(t.desc)}${t.src==='card'?` <span class="small">· ${t.card}${t.note?' · '+esc(t.note):''}</span>`:''}<div class="small" style="display:none"></div></td><td class="small hide-sm">${esc(t.cat)}</td><td class="amt ${t.amt>0?'p':''}">${t.amt>0?'+':''}${ils(t.amt)}</td></tr>`).join('')+'</tbody>';
+}
+['#txM','#txC','#txS'].forEach(s=>$(s).onchange=drawTx); $('#txQ').oninput=drawTx;
+$('#bitTbl').innerHTML='<thead><tr><th>תאריך</th><th>תיאור</th><th>מי</th><th class="amt">סכום</th></tr></thead><tbody>'+
+  DATA.bit.slice().reverse().map(b=>`<tr><td class="small">${dmy(b.d)}</td><td>${esc(b.desc)}<div class="small">${esc(b.pay)}</div></td><td class="small">${esc(b.who)}</td><td class="amt ${b.dir==='in'?'p':''}">${b.dir==='in'?'+':'−'}${ils(b.a)}</td></tr>`).join('')+'</tbody>';
+
+drawMonth(); drawTx(); showTab();
+</script>
+</body>
+</html>
