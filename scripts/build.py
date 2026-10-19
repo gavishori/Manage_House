@@ -191,6 +191,41 @@ def first_match(rules, **fields):
     return "שונות"
 
 
+def describe_sources(files):
+    """One row per file in raw/: what it is, how many rows it gave, and the period it covers."""
+    out = []
+    for f in files:
+        ext, row = f.suffix.lower(), dict(file=f.name, size_kb=round(f.stat().st_size / 1024),
+                                          modified=dt.datetime.fromtimestamp(f.stat().st_mtime).strftime("%Y-%m-%d"))
+        try:
+            if ext == ".xls":
+                t, _ = load_bank([f])
+                d = [x["d"] for x in t]
+                row.update(kind="bank", label="בנק: תנועות עו״ש", rows=len(t), period=[min(d), max(d)] if d else None)
+            elif ext == ".xlsx":
+                t = load_cards([f])
+                d = [x["d"] for x in t]
+                row.update(kind="card", label="כרטיסי אשראי (מקס)", rows=len(t), period=[min(d), max(d)] if d else None,
+                           detail="כרטיסים: " + ", ".join(sorted({x["card"] for x in t})))
+            elif ext == ".csv":
+                t = load_bit([f])
+                d = [x["d"] for x in t]
+                row.update(kind="bit", label="bit", rows=len(t), period=[min(d), max(d)] if d else None)
+            elif ext == ".pdf":
+                sl = load_payslips([f])
+                if sl:
+                    row.update(kind="slip", label="תלוש פנסיה", rows=1, period=[sl[0]["month"] + "-01", sl[0]["month"] + "-28"],
+                               detail=f"חודש {sl[0]['month']}, נטו {sl[0]['net']:,.2f}")
+                else:
+                    row.update(kind="unknown", label="PDF שלא זוהה כתלוש", rows=0, period=None)
+            else:
+                row.update(kind="unknown", label="קובץ שלא נקרא", rows=0, period=None)
+        except Exception as e:  # a broken file should show up in the list, not stop the build
+            row.update(kind="error", label="שגיאה בקריאה", rows=0, period=None, detail=str(e)[:120])
+        out.append(row)
+    return out
+
+
 def main():
     cfg = json.loads((PRIV / "config.json").read_text(encoding="utf-8"))
     files = sorted(RAW.glob("*"))
@@ -239,9 +274,10 @@ def main():
                       bit=[bit[0]["d"], bit[-1]["d"]] if bit else None,
                       slips=[slips[0]["month"], slips[-1]["month"]] if slips else None),
         counts=dict(bank=len(bank), card=len(cards), bit=len(bit), slips=len(slips)),
+        sources=describe_sources(files),
         ledger=ledger, balance=balance, bit=bit, slips=slips,
         config={k: cfg[k] for k in ("title", "household", "categories", "forecast", "fixed_commitments",
-                                    "insights", "learned", "questions", "pension", "cards") if k in cfg},
+                                    "insights", "learned", "questions", "pension", "cards", "manual_sources", "missing_sources") if k in cfg},
     )
     OUT.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
     print(f"bank {len(bank)} ({b_from}..{b_to}) · card {len(cards)} ({c_from}..{c_to}) · "

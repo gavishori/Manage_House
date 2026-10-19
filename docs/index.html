@@ -201,6 +201,7 @@ dialog#drill::backdrop{background:rgba(0,0,0,.35)}
   <a href="#pension">פנסיה</a>
   <a href="#questions">שאלות</a>
   <a href="#tx">כל התנועות</a>
+  <a href="#sources">מקורות</a>
 </nav>
 
 <!-- ================= overview ================= -->
@@ -331,6 +332,21 @@ dialog#drill::backdrop{background:rgba(0,0,0,.35)}
 </section>
 
 <!-- ================= transactions ================= -->
+<section class="tab" id="sources">
+  <h2>מקורות המידע</h2>
+  <p class="sub">כל מה שהניתוח מבוסס עליו. אם משהו חסר או לא מעודכן, אפשר להוסיף: קובץ חדש נכנס לתיקייה <code>finance/private/raw</code>, ומסמך או צילום מסך שולחים ל-Claude.</p>
+  <div class="kpis" id="srcKpis" style="margin-top:0"></div>
+  <h2>קבצים שנקראים אוטומטית</h2>
+  <p class="sub">כל קובץ בתיקיית הייצוא, מה הוא נתן ואיזו תקופה הוא מכסה. כפילויות בין קבצים שחופפים נספרות פעם אחת.</p>
+  <div class="card"><div class="tblwrap" style="max-height:none"><table id="srcFiles"></table></div></div>
+  <h2>מסמכים שקיבלתי ממך</h2>
+  <p class="sub">צילומי מסך, PDF ותשובות. המידע מהם הוזן ידנית להגדרות.</p>
+  <div class="card"><div class="tblwrap" style="max-height:none"><table id="srcManual"></table></div></div>
+  <h2>מה עוד חסר</h2>
+  <p class="sub">מסודר לפי כמה זה ישפר את הדיוק.</p>
+  <div class="card"><div class="tblwrap" style="max-height:none"><table id="srcMissing"></table></div></div>
+</section>
+
 <section class="tab" id="tx">
   <h2>כל התנועות</h2>
   <p class="sub">תנועות הבנק, ובמקום החיוב הכולל של כרטיס האשראי, כל עסקה בנפרד. bit מופיע בנפרד למטה.</p>
@@ -802,10 +818,34 @@ document.querySelectorAll('[data-cc]').forEach(el=>el.addEventListener('click',(
 }));
 drawCredit();
 
+// ---------- sources tab
+(function(){
+  const S=DATA.sources||[], today=new Date(DATA.today);
+  const daysAgo = d => Math.round((today - new Date(d))/86400000);
+  const per = p => p ? `${dmy(p[0])}.${p[0].slice(2,4)} – ${dmy(p[1])}.${p[1].slice(2,4)}` : '—';
+  const kinds=[['bank','בנק (עו״ש)'],['card','כרטיסי אשראי (מקס)'],['bit','bit'],['slip','תלושי פנסיה']];
+  $('#srcKpis').innerHTML=kinds.map(([k,lab])=>{
+    const fs=S.filter(f=>f.kind===k&&f.period); if(!fs.length) return `<div class="card kpi"><div class="lab">${lab}</div><div class="val neg">אין</div><div class="note">לא נמצא קובץ</div></div>`;
+    const from=fs.map(f=>f.period[0]).sort()[0], to=fs.map(f=>f.period[1]).sort().pop(), age=daysAgo(to);
+    return `<div class="card kpi"><div class="lab">${lab}</div><div class="val" style="font-size:22px">עד ${dmy(to)}.${to.slice(2,4)}</div><div class="note">מ-${dmy(from)}.${from.slice(2,4)} · ${fs.length===1?'קובץ אחד':fs.length+' קבצים'}${age>20?` · <b class="neg">${age} ימים בלי עדכון</b>`:''}</div></div>`;
+  }).join('');
+  const order={bank:1,card:2,bit:3,slip:4,unknown:5,error:6};
+  $('#srcFiles').innerHTML='<thead><tr><th>סוג</th><th>קובץ</th><th class="amt">שורות</th><th>תקופה</th><th class="hide-sm">פרטים</th></tr></thead><tbody>'+
+    S.slice().sort((a,b)=>(order[a.kind]||9)-(order[b.kind]||9)||(a.period?a.period[0]:'').localeCompare(b.period?b.period[0]:'')).map(f=>
+      `<tr${f.kind==='unknown'||f.kind==='error'?' class="flag"':''}><td>${esc(f.label)}</td><td class="small" style="word-break:break-all">${esc(f.file)}</td><td class="amt">${f.rows}</td><td class="small">${per(f.period)}</td><td class="small hide-sm">${esc(f.detail||'')}</td></tr>`).join('')+'</tbody>';
+  const M=C.manual_sources||[];
+  $('#srcManual').innerHTML=M.length?'<thead><tr><th>מסמך</th><th class="hide-sm">צורה</th><th>מה יש בו</th><th class="hide-sm">איפה זה בשימוש</th></tr></thead><tbody>'+
+    M.map(m=>`<tr><td><b>${esc(m.name)}</b><div class="small">${m.date?dmy(m.date)+'.'+m.date.slice(2,4):''}</div></td><td class="small hide-sm">${esc(m.form||'')}</td><td>${esc(m.content||'')}</td><td class="small hide-sm">${esc(m.used||'')}</td></tr>`).join('')+'</tbody>':'<tbody><tr><td class="small">אין</td></tr></tbody>';
+  const X=(C.missing_sources||[]).slice().sort((a,b)=>(a.priority||9)-(b.priority||9));
+  const pri={1:'גבוהה',2:'בינונית',3:'נמוכה'};
+  $('#srcMissing').innerHTML=X.length?'<thead><tr><th>מה חסר</th><th>למה זה חשוב</th><th class="hide-sm">איך משיגים</th><th>עדיפות</th></tr></thead><tbody>'+
+    X.map(x=>`<tr${x.priority===1?' class="flag"':''}><td><b>${esc(x.name)}</b></td><td>${esc(x.why||'')}</td><td class="small hide-sm">${esc(x.how||'')}</td><td class="small">${pri[x.priority]||''}</td></tr>`).join('')+'</tbody>':'<tbody><tr><td class="small">לא חסר כלום</td></tr></tbody>';
+})();
+
 drawMonth(); drawTx(); showTab();
 };
 </script>
-<script type="module" src="app.js?v=12"></script>
+<script type="module" src="app.js?v=13"></script>
 <script>
 // If the app module fails to load (old cached files, blocked script), say so instead of hanging on "טוען…".
 setTimeout(() => {
