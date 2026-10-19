@@ -32,7 +32,7 @@ finance/private/     לא נכנס ל-git: קבצי ייצוא, config.json, dat
    python scripts/build.py
    ```
    (בפעם הראשונה: `pip install xlrd openpyxl pdfplumber`)
-3. נכנסים לאתר, לוחצים **״עדכון נתונים״** ובוחרים את `finance/private/data.json`.
+3. בפעם הראשונה: נכנסים לאתר, לוחצים **״עדכון נתונים״** ובוחרים את `finance/private/data.json`. ב-Chrome וב-Edge האתר זוכר את הקובץ, ומאז מספיק ללחוץ **״רענון״**: אם הקובץ השתנה, הוא עולה אוטומטית. בדפדפנים אחרים בוחרים את הקובץ מחדש בכל פעם.
 
 ## הגדרות (`finance/private/config.json`)
 

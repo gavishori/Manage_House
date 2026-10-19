@@ -165,7 +165,7 @@ dialog#drill::backdrop{background:rgba(0,0,0,.35)}
     <p id="srcLine"></p>
   </div>
   <div style="display:flex;gap:6px;flex-wrap:wrap">
-    <button class="sm" type="button" onclick="location.reload()" title="טוען מחדש את הנתונים מהחשבון, בלי להעלות קובץ">רענון</button>
+    <button class="sm" type="button" id="refreshBtn" title="מושך את data.json העדכני ומרענן">רענון</button>
     <button class="sm" type="button" data-upload>עדכון נתונים</button>
     <button class="sm" id="shareBtn" type="button" hidden>שיתוף</button>
     <button class="sm" id="theme" type="button">מצב כהה/בהיר</button>
@@ -786,7 +786,7 @@ drawCredit();
 drawMonth(); drawTx(); showTab();
 };
 </script>
-<script type="module" src="app.js?v=9"></script>
+<script type="module" src="app.js?v=10"></script>
 <script>
 // If the app module fails to load (old cached files, blocked script), say so instead of hanging on "טוען…".
 setTimeout(() => {

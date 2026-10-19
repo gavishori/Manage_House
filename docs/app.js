@@ -8,7 +8,7 @@ import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, serv
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 // Bump ?v= on every change: GitHub Pages caches files for ~10 minutes, and an old
 // cached firebase-config.js from the previous site broke the module import.
-import { firebaseConfig, ownerEmail } from "./firebase-config.js?v=9";
+import { firebaseConfig, ownerEmail } from "./firebase-config.js?v=10";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -42,21 +42,65 @@ function saveState(patch) {
 }
 
 // ---- upload data.json produced by scripts/build.py
-document.addEventListener("click", e => { if (e.target.closest("[data-upload]")) $("#fileIn").click(); });
+// Chrome/Edge can remember the picked file (File System Access API), so "רענון"
+// re-reads it from disk and uploads it when it changed. Other browsers fall back
+// to a plain file input and "רענון" only reloads from Firestore.
+let loadedGenerated = null;
+const canRemember = "showOpenFilePicker" in window;
+const idb = (mode, fn) => new Promise((res, rej) => {
+  const open = indexedDB.open("mh-files", 1);
+  open.onupgradeneeded = () => open.result.createObjectStore("h");
+  open.onerror = () => rej(open.error);
+  open.onsuccess = () => { const tx = open.result.transaction("h", mode), req = fn(tx.objectStore("h")); tx.oncomplete = () => res(req && req.result); tx.onerror = () => rej(tx.error); };
+});
+const saveHandle = h => idb("readwrite", st => st.put(h, "data")).catch(() => {});
+const loadHandle = () => idb("readonly", st => st.get("data")).catch(() => null);
+
+async function uploadText(text) {
+  const data = JSON.parse(text);
+  if (!data.ledger || !data.config || !data.balance) throw new Error("זה לא קובץ data.json של scripts/build.py");
+  if (new Blob([text]).size > 1_000_000) throw new Error("הקובץ גדול מדי למסמך אחד ב-Firestore");
+  await setDoc(dataRef, { json: text, generated: data.generated, uploadedAt: serverTimestamp() });
+  return data.generated;
+}
+document.addEventListener("click", async e => {
+  if (!e.target.closest("[data-upload]")) return;
+  if (!canRemember) return $("#fileIn").click();
+  try {
+    const [h] = await window.showOpenFilePicker({ types: [{ description: "data.json", accept: { "application/json": [".json"] } }] });
+    await saveHandle(h);
+    await uploadText(await (await h.getFile()).text());
+    location.reload();
+  } catch (err) { if (err.name !== "AbortError") alert("העדכון נכשל: " + (err.code || err.message)); }
+});
 $("#fileIn").onchange = async () => {
   const file = $("#fileIn").files[0];
   $("#fileIn").value = "";
   if (!file) return;
+  try { await uploadText(await file.text()); location.reload(); }
+  catch (e) { alert("העדכון נכשל: " + (e.code || e.message)); }
+};
+
+// ---- refresh: pull the remembered data.json if it changed, then reload
+$("#refreshBtn").onclick = async () => {
+  const btn = $("#refreshBtn");
+  btn.disabled = true; btn.textContent = "בודק…";
   try {
-    const text = await file.text();
-    const data = JSON.parse(text);
-    if (!data.ledger || !data.config || !data.balance) throw new Error("זה לא קובץ data.json של scripts/build.py");
-    if (new Blob([text]).size > 1_000_000) throw new Error("הקובץ גדול מדי למסמך אחד ב-Firestore");
-    await setDoc(dataRef, { json: text, generated: data.generated, uploadedAt: serverTimestamp() });
-    location.reload();
-  } catch (e) {
-    alert("העדכון נכשל: " + (e.code || e.message));
+    const h = canRemember ? await loadHandle() : null;
+    if (h) {
+      let perm = await h.queryPermission({ mode: "read" });
+      if (perm !== "granted") perm = await h.requestPermission({ mode: "read" });
+      if (perm === "granted") {
+        const text = await (await h.getFile()).text();
+        const gen = JSON.parse(text).generated;
+        if (gen && gen !== loadedGenerated) { btn.textContent = "מעלה נתונים חדשים…"; await uploadText(text); }
+      }
+    }
+  } catch (err) {
+    // file moved/deleted or permission refused: fall back to a plain reload from Firestore
+    console.warn("refresh from file failed", err);
   }
+  location.reload();
 };
 
 // ---- sharing (owner only): one /access/{email} document per shared account
@@ -101,7 +145,10 @@ onAuthStateChanged(auth, async user => {
     if (!d.exists()) return gate("מחובר.", { upload: true });
     $("#gate").hidden = true;
     $("#app").hidden = false;
-    window.renderApp(JSON.parse(d.data().json), st.exists() ? st.data() : {}, saveState);
+    const data = JSON.parse(d.data().json);
+    loadedGenerated = data.generated;
+    window.renderApp(data, st.exists() ? st.data() : {}, saveState);
+    if (canRemember && !(await loadHandle())) $("#refreshBtn").title = "כדי שרענון ימשוך את data.json אוטומטית, בחרו אותו פעם אחת דרך ״עדכון נתונים״";
   } catch (e) {
     if (e.code === "permission-denied") {
       gate(`לחשבון ${user.email} אין הרשאה לנתונים האלה.`, { signIn: true });
