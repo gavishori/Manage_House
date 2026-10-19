@@ -8,7 +8,7 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, ge
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 // Bump ?v= on every change: GitHub Pages caches files for ~10 minutes, and an old
 // cached firebase-config.js from the previous site broke the module import.
-import { firebaseConfig, ownerEmail } from "./firebase-config.js?v=15";
+import { firebaseConfig, ownerEmail } from "./firebase-config.js?v=16";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -51,7 +51,10 @@ const idb = (mode, fn) => new Promise((res, rej) => {
   const open = indexedDB.open("mh-files", 1);
   open.onupgradeneeded = () => open.result.createObjectStore("h");
   open.onerror = () => rej(open.error);
-  open.onsuccess = () => { const tx = open.result.transaction("h", mode), req = fn(tx.objectStore("h")); tx.oncomplete = () => res(req && req.result); tx.onerror = () => rej(tx.error); };
+  open.onsuccess = () => {  // any failure must reject, never leave the caller waiting
+    try { const tx = open.result.transaction("h", mode), req = fn(tx.objectStore("h")); tx.oncomplete = () => res(req && req.result); tx.onerror = tx.onabort = () => rej(tx.error); }
+    catch (err) { rej(err); }
+  };
 });
 const saveHandle = h => idb("readwrite", st => st.put(h, "data")).catch(() => {});
 const loadHandle = () => idb("readonly", st => st.get("data")).catch(() => null);
@@ -63,21 +66,35 @@ async function uploadText(text) {
   await setDoc(dataRef, { json: text, generated: data.generated, uploadedAt: serverTimestamp() });
   return data.generated;
 }
+// Upload a picked file with explicit feedback, so a silent failure can't look like success.
+async function uploadPicked(text) {
+  let gen;
+  try { gen = JSON.parse(text).generated; } catch { gen = null; }
+  if (gen && gen === loadedGenerated &&
+      !confirm(`הקובץ שבחרת נבנה ב-${gen}, בדיוק כמו הנתונים שכבר באתר.
+כנראה נבחר קובץ ישן. להעלות בכל זאת?`)) return false;
+  await uploadText(text);
+  alert(`הנתונים עודכנו: נבנו ב-${gen || "?"}. הדף ייטען מחדש.`);
+  return true;
+}
 document.addEventListener("click", async e => {
   if (!e.target.closest("[data-upload]")) return;
   if (!canRemember) return $("#fileIn").click();
+  let h;
+  try { [h] = await window.showOpenFilePicker({ types: [{ description: "data.json", accept: { "application/json": [".json"] } }] }); }
+  catch (err) { if (err.name !== "AbortError") alert("פתיחת בחירת הקובץ נכשלה: " + err.message); return; }
   try {
-    const [h] = await window.showOpenFilePicker({ types: [{ description: "data.json", accept: { "application/json": [".json"] } }] });
-    await saveHandle(h);
-    await uploadText(await (await h.getFile()).text());
-    location.reload();
-  } catch (err) { if (err.name !== "AbortError") alert("העדכון נכשל: " + (err.code || err.message)); }
+    const ok = await uploadPicked(await (await h.getFile()).text());
+    // remember the file for "רענון"; best effort, never blocks the upload
+    await Promise.race([saveHandle(h), new Promise(r => setTimeout(r, 1500))]);
+    if (ok) location.reload();
+  } catch (err) { alert("העדכון נכשל: " + (err.code || err.message)); }
 });
 $("#fileIn").onchange = async () => {
   const file = $("#fileIn").files[0];
   $("#fileIn").value = "";
   if (!file) return;
-  try { await uploadText(await file.text()); location.reload(); }
+  try { if (await uploadPicked(await file.text())) location.reload(); }
   catch (e) { alert("העדכון נכשל: " + (e.code || e.message)); }
 };
 
