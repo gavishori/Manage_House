@@ -821,7 +821,12 @@ drawCredit();
 
 // ---------- sources tab
 (function(){
-  const S=DATA.sources||[], today=new Date(DATA.today);
+  if(!DATA.sources){  // data.json built before the sources list existed
+    $('#srcKpis').innerHTML='<div class="alert" style="grid-column:1/-1;margin:0">הנתונים שהועלו לאתר נבנו בגרסה ישנה, לפני שנוספה רשימת המקורות (עודכנו '+esc(DATA.generated)+'). לחצו <b>״עדכון נתונים״</b> ובחרו את <code>finance/private/data.json</code> החדש.</div>';
+    ['#srcFiles','#srcManual','#srcMissing'].forEach(sel=>$(sel).innerHTML='<tbody><tr><td class="small">יופיע אחרי העלאת data.json החדש</td></tr></tbody>');
+    return;
+  }
+  const S=DATA.sources, today=new Date(DATA.today);
   const daysAgo = d => Math.round((today - new Date(d))/86400000);
   const per = p => p ? `${dmy(p[0])}.${p[0].slice(2,4)} – ${dmy(p[1])}.${p[1].slice(2,4)}` : '—';
   const kinds=[['bank','בנק (עו״ש)'],['card','כרטיסי אשראי (מקס)'],['bit','bit'],['slip','תלושי פנסיה']];
@@ -846,7 +851,7 @@ drawCredit();
 drawMonth(); drawTx(); showTab();
 };
 </script>
-<script type="module" src="app.js?v=14"></script>
+<script type="module" src="app.js?v=15"></script>
 <script>
 // If the app module fails to load (old cached files, blocked script), say so instead of hanging on "טוען…".
 setTimeout(() => {
