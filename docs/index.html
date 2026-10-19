@@ -108,6 +108,8 @@ tr.over td{background:var(--overbg)}
 .foot{margin-top:40px}
 dialog#shareDlg{border:1px solid var(--line);border-radius:14px;background:var(--card);color:var(--ink);padding:20px;width:min(480px,calc(100vw - 32px))}
 dialog#shareDlg::backdrop{background:rgba(0,0,0,.35)}
+body.readonly [data-upload],body.readonly #refreshBtn,body.readonly #shareBtn,body.readonly #signOut,body.readonly #budReset,body.readonly #tabs a[href="#questions"]{display:none}
+body.readonly input.bud{pointer-events:none;border-color:transparent;background:transparent}
 dialog#drill{border:1px solid var(--line);border-radius:14px;background:var(--card);color:var(--ink);padding:0;width:min(760px,calc(100vw - 24px));max-height:calc(100vh - 40px)}
 dialog#drill::backdrop{background:rgba(0,0,0,.35)}
 #drill .dh{position:sticky;top:0;background:var(--card);padding:16px 20px 10px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
@@ -139,6 +141,10 @@ dialog#drill::backdrop{background:rgba(0,0,0,.35)}
     <p class="sub">עוד אין נתונים בחשבון. בחרו את הקובץ data.json שנוצר בהרצת scripts/build.py.</p>
     <button class="pri" type="button" data-upload>העלאת data.json</button>
   </div>
+  <form id="pwGate" hidden style="margin-top:6px">
+    <input type="password" id="pwIn" placeholder="סיסמה" required autocomplete="current-password" style="font:inherit;font-size:16px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);width:min(260px,100%)">
+    <button class="pri" type="submit">פתיחה</button>
+  </form>
   <p class="small" id="gateWho" style="margin-top:14px"></p>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
@@ -156,9 +162,22 @@ dialog#drill::backdrop{background:rgba(0,0,0,.35)}
   </form>
   <table id="shareList"></table>
   <p class="small" id="shareMsg"></p>
+  <hr style="border:0;border-top:1px solid var(--line);margin:16px 0">
+  <h3>קישור זמני עם סיסמה</h3>
+  <p class="small">יוצר קישור לצפייה בלבד, שנפתח עם סיסמה שתבחר ועובד <b>שעה אחת</b>. הנתונים מוצפנים בדפדפן עם הסיסמה לפני השמירה, ואחרי שעה השרת חוסם את הגישה. את הסיסמה שולחים בנפרד מהקישור.</p>
+  <form id="tmpForm" class="filters" style="margin:10px 0">
+    <input type="password" id="tmpPw" placeholder="סיסמה (לפחות 8 תווים)" minlength="8" required autocomplete="new-password" style="flex:1;min-width:180px;font:inherit;font-size:16px;padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)">
+    <button class="pri" type="submit" id="tmpBtn">יצירת קישור לשעה</button>
+  </form>
+  <div id="tmpOut" hidden class="filters" style="margin:6px 0">
+    <input type="text" id="tmpLink" readonly style="flex:1;min-width:180px;font:inherit;font-size:16px;padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)">
+    <button type="button" class="sm" id="tmpCopy">העתקה</button>
+  </div>
+  <table id="tmpList"></table>
   <div style="text-align:left;margin-top:12px"><button type="button" class="sm" id="shareClose">סגירה</button></div>
 </dialog>
 <div id="app" hidden>
+<div class="alert" id="shareBanner" hidden style="margin:0 0 12px"></div>
 <header>
   <div>
     <h1 id="title"></h1>
@@ -786,7 +805,7 @@ drawCredit();
 drawMonth(); drawTx(); showTab();
 };
 </script>
-<script type="module" src="app.js?v=10"></script>
+<script type="module" src="app.js?v=11"></script>
 <script>
 // If the app module fails to load (old cached files, blocked script), say so instead of hanging on "טוען…".
 setTimeout(() => {

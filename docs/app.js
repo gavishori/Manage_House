@@ -4,11 +4,11 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, serverTimestamp }
+import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, serverTimestamp, Timestamp }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 // Bump ?v= on every change: GitHub Pages caches files for ~10 minutes, and an old
 // cached firebase-config.js from the previous site broke the module import.
-import { firebaseConfig, ownerEmail } from "./firebase-config.js?v=10";
+import { firebaseConfig, ownerEmail } from "./firebase-config.js?v=11";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -45,7 +45,7 @@ function saveState(patch) {
 // Chrome/Edge can remember the picked file (File System Access API), so "רענון"
 // re-reads it from disk and uploads it when it changed. Other browsers fall back
 // to a plain file input and "רענון" only reloads from Firestore.
-let loadedGenerated = null;
+let loadedGenerated = null, loadedData = null, loadedState = {};
 const canRemember = "showOpenFilePicker" in window;
 const idb = (mode, fn) => new Promise((res, rej) => {
   const open = indexedDB.open("mh-files", 1);
@@ -135,7 +135,8 @@ $("#shareList").onclick = async e => {
   catch (err) { $("#shareMsg").textContent = "ההסרה נכשלה: " + (err.code || err.message); }
 };
 
-onAuthStateChanged(auth, async user => {
+const shareId = new URLSearchParams(location.search).get("s");
+if (!shareId) onAuthStateChanged(auth, async user => {
   if (!user) return gate("כדי לראות את הנתונים צריך להתחבר.", { signIn: true });
   $("#gateWho").textContent = "מחובר כ-" + user.email;
   $("#shareBtn").hidden = user.email !== ownerEmail;
@@ -146,8 +147,8 @@ onAuthStateChanged(auth, async user => {
     $("#gate").hidden = true;
     $("#app").hidden = false;
     const data = JSON.parse(d.data().json);
-    loadedGenerated = data.generated;
-    window.renderApp(data, st.exists() ? st.data() : {}, saveState);
+    loadedGenerated = data.generated; loadedData = data; loadedState = st.exists() ? st.data() : {};
+    window.renderApp(data, loadedState, saveState);
     if (canRemember && !(await loadHandle())) $("#refreshBtn").title = "כדי שרענון ימשוך את data.json אוטומטית, בחרו אותו פעם אחת דרך ״עדכון נתונים״";
   } catch (e) {
     if (e.code === "permission-denied") {
@@ -158,3 +159,92 @@ onAuthStateChanged(auth, async user => {
     }
   }
 });
+
+// ---- temporary password shares (/shares/{id}, readable for one hour)
+const ENC = new TextEncoder(), DEC = new TextDecoder();
+const toB64 = buf => { const b = new Uint8Array(buf); let s = ""; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode(...b.subarray(i, i + 0x8000)); return btoa(s); };
+const fromB64 = str => Uint8Array.from(atob(str), c => c.charCodeAt(0));
+async function pwKey(pw, salt) {
+  const base = await crypto.subtle.importKey("raw", ENC.encode(pw), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey({ name: "PBKDF2", salt, iterations: 310000, hash: "SHA-256" }, base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+}
+const SHARE_MS = 60 * 60 * 1000;
+const fmtTime = d => d.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+
+async function drawTmpShares() {
+  const now = Date.now(), snap = await getDocs(collection(db, "shares"));
+  const live = [];
+  for (const d of snap.docs) {
+    const exp = d.data().expiresAt.toMillis();
+    if (exp <= now) deleteDoc(d.ref).catch(() => {});  // tidy up expired copies
+    else live.push({ id: d.id, exp });
+  }
+  $("#tmpList").innerHTML = live.length
+    ? "<tbody>" + live.sort((a, b) => a.exp - b.exp).map(x => `<tr><td>קישור פעיל עד ${fmtTime(new Date(x.exp))}</td><td style="text-align:left"><button class="sm" type="button" data-kill="${x.id}">ביטול עכשיו</button></td></tr>`).join("") + "</tbody>"
+    : "";
+}
+$("#shareBtn").addEventListener("click", () => { $("#tmpOut").hidden = true; drawTmpShares().catch(() => {}); });
+$("#tmpForm").onsubmit = async e => {
+  e.preventDefault();
+  const pw = $("#tmpPw").value;
+  if (pw.length < 8) return;
+  const btn = $("#tmpBtn"); btn.disabled = true; btn.textContent = "מצפין…";
+  try {
+    const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
+    const plain = ENC.encode(JSON.stringify({ data: loadedData, state: { budgets: loadedState.budgets || {} } }));
+    const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await pwKey(pw, salt), plain);
+    const id = toB64(crypto.getRandomValues(new Uint8Array(18))).replace(/[+/=]/g, c => ({ "+": "-", "/": "_", "=": "" }[c]));
+    const expiresAt = Timestamp.fromMillis(Date.now() + SHARE_MS);
+    await setDoc(doc(db, "shares", id), { ct: toB64(ct), iv: toB64(iv), salt: toB64(salt), expiresAt, createdAt: serverTimestamp() });
+    $("#tmpLink").value = location.origin + location.pathname + "?s=" + id;
+    $("#tmpOut").hidden = false; $("#tmpPw").value = "";
+    $("#shareMsg").textContent = `הקישור נוצר ויעבוד עד ${fmtTime(expiresAt.toDate())}. שלחו את הסיסמה בנפרד מהקישור.`;
+    await drawTmpShares();
+  } catch (err) { $("#shareMsg").textContent = "יצירת הקישור נכשלה: " + (err.code || err.message); }
+  btn.disabled = false; btn.textContent = "יצירת קישור לשעה";
+};
+$("#tmpCopy").onclick = async () => { try { await navigator.clipboard.writeText($("#tmpLink").value); } catch { $("#tmpLink").select(); document.execCommand("copy"); } $("#tmpCopy").textContent = "הועתק ✓"; setTimeout(() => $("#tmpCopy").textContent = "העתקה", 2000); };
+$("#tmpList").onclick = async e => {
+  const id = e.target.closest("[data-kill]")?.dataset.kill;
+  if (!id) return;
+  try { await deleteDoc(doc(db, "shares", id)); $("#shareMsg").textContent = "הקישור בוטל."; await drawTmpShares(); }
+  catch (err) { $("#shareMsg").textContent = "הביטול נכשל: " + (err.code || err.message); }
+};
+
+// ---- viewer side: ?s=<id> asks for the password, decrypts, shows a read-only copy until expiry
+if (shareId) {
+  gate("נתוני ניהול ההוצאות שותפו איתך לשעה. הכניסו את הסיסמה שקיבלתם.");
+  $("#pwGate").hidden = false;
+  $("#pwGate").onsubmit = async e => {
+    e.preventDefault();
+    $("#gateMsg").textContent = "פותח…";
+    let snap;
+    const expired = () => { $("#pwGate").hidden = true; gate("הקישור פג (עברה שעה) או בוטל. בקשו קישור חדש."); };
+    try { snap = await getDoc(doc(db, "shares", shareId)); }
+    catch { return expired(); }
+    if (!snap.exists()) return expired();
+    const d = snap.data(), exp = d.expiresAt.toMillis();
+    let payload;
+    try {
+      const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: fromB64(d.iv) }, await pwKey($("#pwIn").value, fromB64(d.salt)), fromB64(d.ct));
+      payload = JSON.parse(DEC.decode(plain));
+    } catch {
+      gate("הסיסמה שגויה. נסו שוב."); $("#pwGate").hidden = false; $("#pwIn").value = ""; return;
+    }
+    document.body.classList.add("readonly");
+    $("#gate").hidden = true; $("#app").hidden = false;
+    window.renderApp(payload.data, payload.state || {}, () => {});
+    const banner = $("#shareBanner"); banner.hidden = false;
+    const tick = () => {
+      const left = exp - Date.now();
+      if (left <= 0) {  // close the view on expiry; the server already refuses new reads
+        $("#app").innerHTML = ""; $("#app").hidden = true; $("#pwGate").hidden = true;
+        return gate("זמן הצפייה הסתיים. הנתונים נסגרו.");
+      }
+      const m = Math.floor(left / 60000), sec = Math.floor(left / 1000) % 60;
+      banner.textContent = `תצוגה משותפת לצפייה בלבד · נסגרת בעוד ${m}:${String(sec).padStart(2, "0")} (ב-${fmtTime(new Date(exp))})`;
+      setTimeout(tick, 1000);
+    };
+    tick();
+  };
+}

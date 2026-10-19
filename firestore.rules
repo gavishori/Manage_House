@@ -33,6 +33,22 @@ service cloud.firestore {
       allow delete: if isOwner();
     }
 
+    // Temporary password shares. The owner stores a copy of the data that was
+    // encrypted in the browser with a password (AES-GCM, PBKDF2 key), so the
+    // server never sees the password or the plain data. Anyone holding the
+    // random link id can fetch the encrypted copy, but only until expiresAt
+    // (at most ~1 hour after creation); after that reads are refused.
+    match /shares/{id} {
+      allow get: if request.time < resource.data.expiresAt;
+      allow list, delete: if isOwner();
+      allow create: if isOwner()
+                    && request.resource.data.keys().hasOnly(['ct', 'iv', 'salt', 'expiresAt', 'createdAt'])
+                    && request.resource.data.ct is string
+                    && request.resource.data.expiresAt is timestamp
+                    && request.resource.data.expiresAt <= request.time + duration.value(61, 'm');
+      allow update: if false;
+    }
+
     // Everything else (including the old QR-scan records) is closed.
     match /{document=**} {
       allow read, write: if false;
