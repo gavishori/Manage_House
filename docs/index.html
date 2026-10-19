@@ -457,12 +457,13 @@ $('#bizToggle').onchange = drawForecast;
   $('#k-neg').textContent = `${neg} מתוך ${B.length}`;
   $('#k-neg2').textContent = `${Math.round(neg/B.length*100)}% מהימים. ריבית חובה: ${ils(-sumBy(L.filter(t=>t.desc==='ריבית'),t=>t.amt))}`;
   const a = forecast(true), b = forecast(false);
-  $('#k-in').textContent = ils(b.tin); $('#k-in2').textContent = BIZ ? `בלי העסק. עם העברה מהעסק: ${ils(a.tin)}` : 'פנסיה וקצבת ילדים. העברות מהעסק לא נספרות';
+  const incNames = b.inc.map(r=>r[0]).join(', ');  // whatever the forecast counts as fixed income
+  $('#k-in').textContent = ils(b.tin); $('#k-in2').textContent = BIZ ? `בלי העסק. עם העברה מהעסק: ${ils(a.tin)}` : `${incNames}. העברות מהעסק לא נספרות`;
   $('#k-out').textContent = ils(a.tout);
   const round = n => Math.round(n/500)*500;
   $('#bottomLine').innerHTML = `<b>השורה התחתונה:</b> בחודש רגיל צפויות הוצאות של כ-<b>${ils(round(a.tout))}</b>.
     ${BIZ ? `אם העסק מעביר ${ils(BIZ)}, חסרים כ-<b>${ils(round(a.tout-a.tin))}</b> בחודש. אם לא, חסרים כ-<b>${ils(round(b.tout-b.tin))}</b>.`
-          : `ההכנסה הקבועה (פנסיה וקצבת ילדים) היא כ-<b>${ils(round(b.tin))}</b>, ולכן חסרים כ-<b>${ils(round(b.tout-b.tin))}</b> בחודש. העברות מהעסק לא נספרות בתחזית: כל כסף שייכנס ממנו הוא תוספת.`}
+          : `ההכנסה הקבועה (${incNames}) היא כ-<b>${ils(round(b.tin))}</b>, ולכן חסרים כ-<b>${ils(round(b.tout-b.tin))}</b> בחודש. העברות מהעסק לא נספרות בתחזית: כל כסף שייכנס ממנו הוא תוספת.`}
     את הפער השנה מימנו מכירת רכב וקרן השתלמות, והכסף הזה נגמר. הצעדים שיכולים לסגור את הפער מסודרים בלשונית <a href="#insights">תובנות</a>.`;
   drawForecast();
 })();
@@ -851,7 +852,7 @@ drawCredit();
 drawMonth(); drawTx(); showTab();
 };
 </script>
-<script type="module" src="app.js?v=16"></script>
+<script type="module" src="app.js?v=17"></script>
 <script>
 // If the app module fails to load (old cached files, blocked script), say so instead of hanging on "טוען…".
 setTimeout(() => {
