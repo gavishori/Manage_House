@@ -8,7 +8,7 @@ import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, serv
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 // Bump ?v= on every change: GitHub Pages caches files for ~10 minutes, and an old
 // cached firebase-config.js from the previous site broke the module import.
-import { firebaseConfig, ownerEmail } from "./firebase-config.js?v=8";
+import { firebaseConfig, ownerEmail } from "./firebase-config.js?v=9";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);

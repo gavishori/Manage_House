@@ -250,7 +250,7 @@ dialog#drill::backdrop{background:rgba(0,0,0,.35)}
   <div class="filters"><select id="ccSel"></select><span class="small" id="ccNote"></span></div>
   <div class="kpis" style="margin-top:0">
     <div class="card kpi" data-cc="month"><div class="lab">חיוב מקס בחודש</div><div class="val" id="cc-m"></div><div class="note" id="cc-m2"></div></div>
-    <div class="card kpi" data-cc="isra"><div class="lab">ישראכרט בחודש</div><div class="val" id="cc-i"></div><div class="note">קניות שוטפות של הילדים, בלי פירוט</div></div>
+    <div class="card kpi" data-cc="isra"><div class="lab" id="cc-il">ישראכרט בחודש</div><div class="val" id="cc-i"></div><div class="note">קניות שוטפות של הילדים, בלי פירוט</div></div>
     <div class="card kpi" data-cc="so"><div class="lab">הוראות קבע בכרטיס</div><div class="val" id="cc-s"></div><div class="note" id="cc-s2"></div></div>
     <div class="card kpi" data-cc="inst"><div class="lab">יתרת תשלומים פתוחים</div><div class="val" id="cc-t"></div><div class="note" id="cc-t2"></div></div>
   </div>
@@ -694,7 +694,8 @@ document.querySelectorAll('[data-drill]').forEach(el=>el.addEventListener('click
 // ---------- credit tab
 const CARDS_L = L.filter(t=>t.src==='card');
 const ISRA_L = L.filter(t=>t.src==='bank' && /ישראכרט/.test(t.desc));
-const cardLabel = n => (C.cards && C.cards[n]) || ('כרטיס ' + n);
+const cardLabel = n => (C.cards && C.cards[n]) || (n==='isra' ? 'ישראכרט' : 'כרטיס ' + n);
+$('#cc-il').textContent = cardLabel('isra') + ' בחודש';
 const cardIds = [...new Set(CARDS_L.map(t=>t.card))].sort((a,b)=>sumBy(CARDS_L.filter(t=>t.card===a),t=>t.amt)-sumBy(CARDS_L.filter(t=>t.card===b),t=>t.amt));
 const ccMonths = [...new Set(CARDS_L.map(t=>t.d.slice(0,7)).concat(ISRA_L.map(t=>t.d.slice(0,7))))].sort();
 const isSO = t => /הוראת קבע/.test(t.note||'');
@@ -728,7 +729,7 @@ function drawCredit(){
 
   // pivot: months x cards
   const cols=[...cardIds.map(c=>({id:c, name:cardLabel(c), rows:m2=>CARDS_L.filter(t=>t.card===c&&t.d.startsWith(m2))})),
-              {id:'isra', name:'ישראכרט', rows:m2=>ISRA_L.filter(t=>t.d.startsWith(m2))}];
+              {id:'isra', name:cardLabel('isra'), rows:m2=>ISRA_L.filter(t=>t.d.startsWith(m2))}];
   $('#ccPivot').innerHTML='<thead><tr><th>חודש חיוב</th>'+cols.map(c=>`<th class="amt">${esc(c.name)}</th>`).join('')+'<th class="amt">סה״כ</th></tr></thead><tbody>'+
     ccMonths.slice().reverse().map(m2=>{ let rowTot=0;
       const cells=cols.map(c=>{ const v=-sumBy(c.rows(m2),t=>t.amt); rowTot+=v; return `<td class="amt" style="cursor:${v?'pointer':'default'}" data-pm="${m2}" data-pc="${c.id}">${v?ils(v):'<span class="small">—</span>'}</td>`; }).join('');
@@ -776,7 +777,7 @@ $('#ccSel').onchange=drawCredit;
 document.querySelectorAll('[data-cc]').forEach(el=>el.addEventListener('click',()=>{
   const m=$('#ccSel').value, k=el.dataset.cc;
   if(k==='month'){ const rs=CARDS_L.filter(t=>t.d.startsWith(m)); openDrill({title:`חיוב מקס, ${mLabel(m)}`, sub:'כל הכרטיסים, לפי מועד החיוב', total:sumBy(rs,t=>t.amt), rows:rs, filter:{m, src:'card'}}); }
-  if(k==='isra'){ openDrill({title:'ישראכרט', sub:'החיובים החודשיים מהבנק. לפירוט צריך ייצוא מישראכרט.', total:sumBy(ISRA_L,t=>t.amt), rows:ISRA_L, filter:{cat:'ישראכרט (קניות הילדים)'}}); }
+  if(k==='isra'){ openDrill({title:cardLabel('isra'), sub:'החיובים החודשיים בחשבון הבנק (הכרטיס הוא של הבנק). לפירוט העסקאות צריך ייצוא מישראכרט.', total:sumBy(ISRA_L,t=>t.amt), rows:ISRA_L, filter:{cat:'ישראכרט (קניות הילדים)'}}); }
   if(k==='so'){ const rs=CARDS_L.filter(t=>t.d.startsWith(m)&&isSO(t)); openDrill({title:`הוראות קבע, ${mLabel(m)}`, total:sumBy(rs,t=>t.amt), rows:rs}); }
   if(k==='inst'){ document.querySelector('#ccInst').scrollIntoView({behavior:'smooth'}); }
 }));
@@ -785,7 +786,7 @@ drawCredit();
 drawMonth(); drawTx(); showTab();
 };
 </script>
-<script type="module" src="app.js?v=8"></script>
+<script type="module" src="app.js?v=9"></script>
 <script>
 // If the app module fails to load (old cached files, blocked script), say so instead of hanging on "טוען…".
 setTimeout(() => {
