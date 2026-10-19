@@ -115,9 +115,9 @@ dialog#drill::backdrop{background:rgba(0,0,0,.35)}
 #drill h3{margin:0;font-size:20px}
 #drill .tot{font-size:26px;font-weight:800;font-variant-numeric:tabular-nums}
 #drill tr.click{cursor:pointer} #drill tr.click:hover td{background:var(--chip)}
-[data-drill]{cursor:pointer;transition:border-color .15s}
-[data-drill]:hover{border-color:var(--accent)}
-.kpi[data-drill] .lab::after{content:" ›";color:var(--accent);font-weight:800}
+[data-drill],[data-cc]{cursor:pointer;transition:border-color .15s}
+[data-drill]:hover,[data-cc]:hover{border-color:var(--accent)}
+.kpi[data-drill] .lab::after,.kpi[data-cc] .lab::after{content:" ›";color:var(--accent);font-weight:800}
 #fcIn tbody tr,#fcOut tbody tr{cursor:pointer} #fcIn tbody tr:hover td,#fcOut tbody tr:hover td{background:var(--chip)}
 @media (max-width:560px){
   body{font-size:16px} header h1{font-size:25px}
@@ -176,6 +176,7 @@ dialog#drill::backdrop{background:rgba(0,0,0,.35)}
 <nav class="tabs" id="tabs">
   <a href="#overview">סקירה</a>
   <a href="#month">החודש</a>
+  <a href="#credit">אשראי</a>
   <a href="#fixed">התחייבויות קבועות</a>
   <a href="#insights">תובנות</a>
   <a href="#pension">פנסיה</a>
@@ -194,9 +195,9 @@ dialog#drill::backdrop{background:rgba(0,0,0,.35)}
   <div class="alert" id="bottomLine"></div>
 
   <h2>תחזית לחודש רגיל</h2>
-  <p class="sub">מה צפוי להיכנס ולצאת בחודש רגיל, בלי סכומים חד-פעמיים. אפשר לראות את התחזית עם ההעברה מהעסק ובלעדיה.</p>
+  <p class="sub">מה צפוי להיכנס ולצאת בחודש רגיל, בלי סכומים חד-פעמיים. לחיצה על שורה מציגה מאיפה המספר מגיע.</p>
   <div class="card">
-    <label class="switch"><input type="checkbox" id="bizToggle" checked> <span id="bizLbl"></span></label>
+    <label class="switch" id="bizWrap"><input type="checkbox" id="bizToggle" checked> <span id="bizLbl"></span></label>
     <div class="grid2" style="margin-top:12px">
       <table id="fcIn"></table>
       <table id="fcOut"></table>
@@ -243,6 +244,31 @@ dialog#drill::backdrop{background:rgba(0,0,0,.35)}
 </section>
 
 <!-- ================= fixed ================= -->
+<section class="tab" id="credit">
+  <h2>כרטיסי אשראי</h2>
+  <p class="sub">כל הכרטיסים של מקס, לפי מועד החיוב, וגם ישראכרט (שלו יש רק סכום חודשי מהבנק, בלי פירוט). אפשר ללחוץ על כל מספר.</p>
+  <div class="filters"><select id="ccSel"></select><span class="small" id="ccNote"></span></div>
+  <div class="kpis" style="margin-top:0">
+    <div class="card kpi" data-cc="month"><div class="lab">חיוב מקס בחודש</div><div class="val" id="cc-m"></div><div class="note" id="cc-m2"></div></div>
+    <div class="card kpi" data-cc="isra"><div class="lab">ישראכרט בחודש</div><div class="val" id="cc-i"></div><div class="note">קניות שוטפות של הילדים, בלי פירוט</div></div>
+    <div class="card kpi" data-cc="so"><div class="lab">הוראות קבע בכרטיס</div><div class="val" id="cc-s"></div><div class="note" id="cc-s2"></div></div>
+    <div class="card kpi" data-cc="inst"><div class="lab">יתרת תשלומים פתוחים</div><div class="val" id="cc-t"></div><div class="note" id="cc-t2"></div></div>
+  </div>
+  <h2>לפי חודש וכרטיס</h2>
+  <p class="sub">סכום החיוב בכל חודש, בכל כרטיס. לחיצה על תא מציגה את העסקאות.</p>
+  <div class="card"><div class="tblwrap" style="max-height:none"><table id="ccPivot"></table></div></div>
+  <div class="grid2" style="margin-top:14px">
+    <div class="card bars" id="ccCats"></div>
+    <div class="card"><h3>בתי העסק הגדולים בחודש</h3><table id="ccTop"></table></div>
+  </div>
+  <h2>הוראות קבע בכרטיס</h2>
+  <p class="sub">חיובים שחוזרים כל חודש בלי שמחליטים מחדש: ביטוחים, קופות חולים, תקשורת, ארנונה, מנויים.</p>
+  <div class="card"><div class="tblwrap"><table id="ccSO"></table></div></div>
+  <h2>עסקאות בתשלומים</h2>
+  <p class="sub">כמה תשלומים כבר ירדו, כמה נשארו, ומתי זה נגמר.</p>
+  <div class="card"><div class="tblwrap"><table id="ccInst"></table></div></div>
+</section>
+
 <section class="tab" id="fixed">
   <h2>התחייבויות קבועות</h2>
   <p class="sub">הוראות קבע ומנויים שיורדים כל חודש בלי שמחליטים מחדש. השורות המסומנות ⚑ הן הראשונות לבדיקה.</p>
@@ -367,6 +393,7 @@ const avgCat = c => sumBy(L.filter(t=>t.cat===c && fullMonths.includes(t.d.slice
 const pensionBase = median(DATA.slips.map(s=>s.net));
 const BIZ = C.forecast.income['העברה מהעסק'] || 0;
 $('#bizLbl').textContent = `העסק מעביר ${ils(BIZ)} בחודש`;
+$('#bizWrap').hidden = !BIZ;  // the toggle only exists when a business transfer is configured
 function forecast(withBiz){
   const inc = Object.entries(C.forecast.income)
     .filter(([c])=>withBiz || c!=='העברה מהעסק')
@@ -394,11 +421,12 @@ $('#bizToggle').onchange = drawForecast;
   $('#k-neg').textContent = `${neg} מתוך ${B.length}`;
   $('#k-neg2').textContent = `${Math.round(neg/B.length*100)}% מהימים. ריבית חובה: ${ils(-sumBy(L.filter(t=>t.desc==='ריבית'),t=>t.amt))}`;
   const a = forecast(true), b = forecast(false);
-  $('#k-in').textContent = ils(b.tin); $('#k-in2').textContent = `הפנסיה בלבד. עם העברה מהעסק: ${ils(a.tin)}`;
+  $('#k-in').textContent = ils(b.tin); $('#k-in2').textContent = BIZ ? `בלי העסק. עם העברה מהעסק: ${ils(a.tin)}` : 'פנסיה וקצבת ילדים. העברות מהעסק לא נספרות';
   $('#k-out').textContent = ils(a.tout);
   const round = n => Math.round(n/500)*500;
   $('#bottomLine').innerHTML = `<b>השורה התחתונה:</b> בחודש רגיל צפויות הוצאות של כ-<b>${ils(round(a.tout))}</b>.
-    אם העסק מעביר ${ils(BIZ)}, חסרים כ-<b>${ils(round(a.tout-a.tin))}</b> בחודש. אם לא, חסרים כ-<b>${ils(round(b.tout-b.tin))}</b>.
+    ${BIZ ? `אם העסק מעביר ${ils(BIZ)}, חסרים כ-<b>${ils(round(a.tout-a.tin))}</b> בחודש. אם לא, חסרים כ-<b>${ils(round(b.tout-b.tin))}</b>.`
+          : `ההכנסה הקבועה (פנסיה וקצבת ילדים) היא כ-<b>${ils(round(b.tin))}</b>, ולכן חסרים כ-<b>${ils(round(b.tout-b.tin))}</b> בחודש. העברות מהעסק לא נספרות בתחזית: כל כסף שייכנס ממנו הוא תוספת.`}
     את הפער השנה מימנו מכירת רכב וקרן השתלמות, והכסף הזה נגמר. הצעדים שיכולים לסגור את הפער מסודרים בלשונית <a href="#insights">תובנות</a>.`;
   drawForecast();
 })();
@@ -663,10 +691,101 @@ const DRILL = {
 function wireFc(){ $('#drB').querySelectorAll('tr[data-fc]').forEach(tr=>tr.onclick=()=>openDrill(fcSource(tr.dataset.fc))); }
 document.querySelectorAll('[data-drill]').forEach(el=>el.addEventListener('click',()=>{ const spec=DRILL[el.dataset.drill](); openDrill(spec); spec.after&&spec.after(); }));
 
+// ---------- credit tab
+const CARDS_L = L.filter(t=>t.src==='card');
+const ISRA_L = L.filter(t=>t.src==='bank' && /ישראכרט/.test(t.desc));
+const cardLabel = n => (C.cards && C.cards[n]) || ('כרטיס ' + n);
+const cardIds = [...new Set(CARDS_L.map(t=>t.card))].sort((a,b)=>sumBy(CARDS_L.filter(t=>t.card===a),t=>t.amt)-sumBy(CARDS_L.filter(t=>t.card===b),t=>t.amt));
+const ccMonths = [...new Set(CARDS_L.map(t=>t.d.slice(0,7)).concat(ISRA_L.map(t=>t.d.slice(0,7))))].sort();
+const isSO = t => /הוראת קבע/.test(t.note||'');
+const instOf = t => { const m=/תשלום (\d+) מתוך (\d+)/.exec(t.note||''); return m ? {k:+m[1], n:+m[2]} : null; };
+const addMonths = (m,k) => { const d=new Date(+m.slice(0,4), +m.slice(5)-1+k, 1); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); };
+
+// installments: one row per purchase (merchant + purchase date + card + number of payments)
+const installments = (()=>{
+  const g={};
+  CARDS_L.forEach(t=>{ const i=instOf(t); if(!i) return; const key=[t.desc,t.td,t.card,i.n].join('|');
+    (g[key]=g[key]||{desc:t.desc, td:t.td, card:t.card, n:i.n, rows:[], maxK:0, lastM:'', pay:0});
+    const x=g[key]; x.rows.push(t); if(i.k>=x.maxK){ x.maxK=i.k; x.lastM=t.d.slice(0,7); x.pay=-t.amt; } });
+  return Object.values(g).map(x=>({...x, left:x.n-x.maxK, leftAmt:(x.n-x.maxK)*x.pay, endM:addMonths(x.lastM, x.n-x.maxK), total:x.pay*x.n}))
+    .sort((a,b)=>b.leftAmt-a.leftAmt || b.td.localeCompare(a.td));
+})();
+
+ccMonths.slice().reverse().forEach(m=>{ const o=document.createElement('option'); o.value=m; o.textContent=mLabel(m)+(m>DATA.today.slice(0,7)?' (חיוב עתידי)':''); $('#ccSel').appendChild(o); });
+$('#ccSel').value = ccMonths.filter(m=>m<=DATA.today.slice(0,7)).pop() || ccMonths[ccMonths.length-1];
+
+function drawCredit(){
+  const m=$('#ccSel').value, rows=CARDS_L.filter(t=>t.d.startsWith(m)), isr=ISRA_L.filter(t=>t.d.startsWith(m));
+  $('#ccNote').textContent = m>DATA.today.slice(0,7) ? 'חיוב עתידי: אלה עסקאות שכבר נעשו וירדו במועד החיוב הבא' : '';
+  const tot=-sumBy(rows,t=>t.amt);
+  $('#cc-m').textContent=ils(tot);
+  $('#cc-m2').textContent=cardIds.map(c=>[c,-sumBy(rows.filter(t=>t.card===c),t=>t.amt)]).filter(x=>Math.round(x[1])).map(([c,v])=>`${c}: ${ils(v)}`).join(' · ');
+  $('#cc-i').textContent=ils(-sumBy(isr,t=>t.amt));
+  const so=rows.filter(isSO);
+  $('#cc-s').textContent=ils(-sumBy(so,t=>t.amt)); $('#cc-s2').textContent=`${so.length} חיובים החודש`;
+  const open=installments.filter(x=>x.left>0);
+  $('#cc-t').textContent=ils(sumBy(open,x=>x.leftAmt)); $('#cc-t2').textContent=`${open.length} עסקאות שעוד לא נגמרו`;
+
+  // pivot: months x cards
+  const cols=[...cardIds.map(c=>({id:c, name:cardLabel(c), rows:m2=>CARDS_L.filter(t=>t.card===c&&t.d.startsWith(m2))})),
+              {id:'isra', name:'ישראכרט', rows:m2=>ISRA_L.filter(t=>t.d.startsWith(m2))}];
+  $('#ccPivot').innerHTML='<thead><tr><th>חודש חיוב</th>'+cols.map(c=>`<th class="amt">${esc(c.name)}</th>`).join('')+'<th class="amt">סה״כ</th></tr></thead><tbody>'+
+    ccMonths.slice().reverse().map(m2=>{ let rowTot=0;
+      const cells=cols.map(c=>{ const v=-sumBy(c.rows(m2),t=>t.amt); rowTot+=v; return `<td class="amt" style="cursor:${v?'pointer':'default'}" data-pm="${m2}" data-pc="${c.id}">${v?ils(v):'<span class="small">—</span>'}</td>`; }).join('');
+      return `<tr${m2===m?' style="font-weight:700"':''}><td>${mLabel(m2)}${m2>DATA.today.slice(0,7)?' <span class="small">(עתידי)</span>':''}</td>${cells}<td class="amt"><b>${ils(rowTot)}</b></td></tr>`; }).join('')+'</tbody>';
+  $('#ccPivot').querySelectorAll('td[data-pm]').forEach(td=>td.onclick=()=>{ const c=cols.find(x=>x.id===td.dataset.pc), rs=c.rows(td.dataset.pm); if(!rs.length) return;
+    openDrill({title:`${c.name}, ${mLabel(td.dataset.pm)}`, sub: c.id==='isra'?'לישראכרט יש רק החיוב החודשי מהבנק, בלי פירוט עסקאות.':'לפי מועד החיוב', total:sumBy(rs,t=>t.amt), rows:rs, filter:{m:td.dataset.pm, src:c.id==='isra'?'bank':'card'}}); });
+
+  // categories this month
+  const g={}; rows.forEach(t=>g[t.cat]=(g[t.cat]||0)-t.amt);
+  const cl=Object.entries(g).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]), mx=cl.length?cl[0][1]:1;
+  $('#ccCats').innerHTML='<h3>לפי קטגוריה</h3>'+cl.map(([c,v])=>`<div class="row" style="cursor:pointer" data-c="${esc(c)}"><div>${esc(c)}</div><div class="bar"><span style="width:${v/mx*100}%;background:var(--in)"></span></div><div class="num">${ils(v)}</div></div>`).join('');
+  $('#ccCats').querySelectorAll('.row').forEach(el=>el.onclick=()=>{ const rs=rows.filter(t=>t.cat===el.dataset.c); openDrill({title:`${el.dataset.c} באשראי, ${mLabel(m)}`, total:sumBy(rs,t=>t.amt), rows:rs, filter:{m, cat:el.dataset.c, src:'card'}}); });
+
+  // top merchants this month
+  const mm={}; rows.forEach(t=>{ (mm[t.desc]=mm[t.desc]||[]).push(t); });
+  const ml=Object.entries(mm).map(([k,v])=>[k,-sumBy(v,t=>t.amt),v]).sort((a,b)=>b[1]-a[1]).slice(0,15);
+  $('#ccTop').innerHTML='<tbody>'+ml.map(([k,v,rs],i)=>`<tr class="click" style="cursor:pointer" data-mi="${i}"><td>${esc(k)}</td><td class="small">${rs.length}×</td><td class="amt">${ils(v)}</td></tr>`).join('')+'</tbody>';
+  $('#ccTop').querySelectorAll('tr[data-mi]').forEach(tr=>tr.onclick=()=>{ const [k,,rs]=ml[+tr.dataset.mi]; openDrill({title:k, sub:mLabel(m), total:sumBy(rs,t=>t.amt), rows:rs}); });
+}
+
+// standing orders: one row per merchant + card, over the whole period
+(function(){
+  const g={}; CARDS_L.filter(isSO).forEach(t=>{ const k=t.desc+'|'+t.card; (g[k]=g[k]||[]).push(t); });
+  // "last" is the whole last charge month for that merchant (Migdal, for example, charges 8 policies separately)
+  const list=Object.values(g).map(rs=>{ const s=rs.slice().sort((a,b)=>a.d.localeCompare(b.d)), last=s[s.length-1], lastM=last.d.slice(0,7);
+    const ms=new Set(rs.map(t=>t.d.slice(0,7))).size, lastTot=-sumBy(rs.filter(t=>t.d.startsWith(lastM)),t=>t.amt);
+    return {desc:last.desc, card:last.card, cat:last.cat, last:lastTot, lastM, months:ms, avg:-sumBy(rs,t=>t.amt)/ms, rows:rs,
+            stopped: lastM<addMonths(DATA.today.slice(0,7),-1) || lastTot<=0}; })
+    .sort((a,b)=>a.stopped-b.stopped || b.last-a.last);
+  const recent=list.filter(x=>!x.stopped);
+  $('#ccSO').innerHTML='<thead><tr><th>בית עסק</th><th class="hide-sm">קטגוריה</th><th>כרטיס</th><th class="amt">חודש אחרון</th><th class="amt">ממוצע לחודש</th><th class="amt hide-sm">חודשים</th></tr></thead><tbody>'+
+    list.map((x,i)=>`<tr class="click" style="cursor:pointer;${x.stopped?'opacity:.55':''}" data-si="${i}"><td>${esc(x.desc)}${x.stopped?' <span class="small">(הפסיק)</span>':''}</td><td class="small hide-sm">${esc(x.cat)}</td><td class="small">${x.card}</td><td class="amt">${ils(x.last)}</td><td class="amt">${ils(x.avg)}</td><td class="amt small hide-sm">${x.months}</td></tr>`).join('')+
+    `</tbody><tfoot><tr><td colspan="3">פעילות עכשיו (${recent.length})</td><td class="amt">${ils(sumBy(recent,x=>x.last))}</td><td class="amt">${ils(sumBy(recent,x=>x.avg))}</td><td class="hide-sm"></td></tr></tfoot>`;
+  $('#ccSO').querySelectorAll('tr[data-si]').forEach(tr=>tr.onclick=()=>{ const x=list[+tr.dataset.si]; openDrill({title:`${x.desc} (הוראת קבע)`, sub:`כרטיס ${x.card} · ${x.months} חודשים · ממוצע ${ils(x.avg)}`, total:-x.avg, rows:x.rows}); });
+})();
+
+// installments table
+$('#ccInst').innerHTML = installments.length ? '<thead><tr><th>בית עסק</th><th class="hide-sm">נרכש</th><th>כרטיס</th><th class="amt">תשלום</th><th class="amt">שולמו</th><th class="amt">נשאר</th><th>מסתיים</th></tr></thead><tbody>'+
+  installments.map((x,i)=>`<tr class="click" style="cursor:pointer;${x.left?'':'opacity:.55'}" data-ii="${i}"><td>${esc(x.desc)}</td><td class="small hide-sm">${dmy(x.td)}.${x.td.slice(2,4)}</td><td class="small">${x.card}</td><td class="amt">${ils(x.pay)}</td><td class="amt">${x.maxK}/${x.n}</td><td class="amt ${x.left?'neg':''}">${x.left?ils(x.leftAmt):'הסתיים'}</td><td class="small">${x.left?mLabel(x.endM):''}</td></tr>`).join('')+
+  `</tbody><tfoot><tr><td colspan="5">סה״כ שנשאר לשלם</td><td class="amt">${ils(sumBy(installments,x=>x.leftAmt))}</td><td></td></tr></tfoot>`
+  : '<tbody><tr><td class="small">אין עסקאות בתשלומים.</td></tr></tbody>';
+$('#ccInst').querySelectorAll('tr[data-ii]').forEach(tr=>tr.onclick=()=>{ const x=installments[+tr.dataset.ii]; openDrill({title:x.desc, sub:`${x.n} תשלומים של ${ils(x.pay)} · נרכש ${dmy(x.td)}.${x.td.slice(2,4)} · ${x.left?`נשארו ${x.left}`:'הסתיים'}`, total:-x.total, rows:x.rows}); });
+
+$('#ccSel').onchange=drawCredit;
+document.querySelectorAll('[data-cc]').forEach(el=>el.addEventListener('click',()=>{
+  const m=$('#ccSel').value, k=el.dataset.cc;
+  if(k==='month'){ const rs=CARDS_L.filter(t=>t.d.startsWith(m)); openDrill({title:`חיוב מקס, ${mLabel(m)}`, sub:'כל הכרטיסים, לפי מועד החיוב', total:sumBy(rs,t=>t.amt), rows:rs, filter:{m, src:'card'}}); }
+  if(k==='isra'){ openDrill({title:'ישראכרט', sub:'החיובים החודשיים מהבנק. לפירוט צריך ייצוא מישראכרט.', total:sumBy(ISRA_L,t=>t.amt), rows:ISRA_L, filter:{cat:'ישראכרט (קניות הילדים)'}}); }
+  if(k==='so'){ const rs=CARDS_L.filter(t=>t.d.startsWith(m)&&isSO(t)); openDrill({title:`הוראות קבע, ${mLabel(m)}`, total:sumBy(rs,t=>t.amt), rows:rs}); }
+  if(k==='inst'){ document.querySelector('#ccInst').scrollIntoView({behavior:'smooth'}); }
+}));
+drawCredit();
+
 drawMonth(); drawTx(); showTab();
 };
 </script>
-<script type="module" src="app.js?v=7"></script>
+<script type="module" src="app.js?v=8"></script>
 <script>
 // If the app module fails to load (old cached files, blocked script), say so instead of hanging on "טוען…".
 setTimeout(() => {
