@@ -4,11 +4,11 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, serverTimestamp, Timestamp }
+import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, serverTimestamp, Timestamp, Bytes }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 // Bump ?v= on every change: GitHub Pages caches files for ~10 minutes, and an old
 // cached firebase-config.js from the previous site broke the module import.
-import { firebaseConfig, ownerEmail } from "./firebase-config.js?v=11";
+import { firebaseConfig, ownerEmail } from "./firebase-config.js?v=12";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -160,27 +160,35 @@ if (!shareId) onAuthStateChanged(auth, async user => {
   }
 });
 
-// ---- temporary password shares (/shares/{id}, readable for one hour)
+// ---- temporary password shares
+// /shareSalts/{id}: salt only (readable while the link is valid, up to 7 days)
+// /shares/{id}: ciphertext + vh, readable for one hour after the first correct password
 const ENC = new TextEncoder(), DEC = new TextDecoder();
 const toB64 = buf => { const b = new Uint8Array(buf); let s = ""; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode(...b.subarray(i, i + 0x8000)); return btoa(s); };
 const fromB64 = str => Uint8Array.from(atob(str), c => c.charCodeAt(0));
-async function pwKey(pw, salt) {
-  const base = await crypto.subtle.importKey("raw", ENC.encode(pw), "PBKDF2", false, ["deriveKey"]);
-  return crypto.subtle.deriveKey({ name: "PBKDF2", salt, iterations: 310000, hash: "SHA-256" }, base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+// One PBKDF2 run gives 64 bytes: the first half is the AES key, the second half the
+// "proof" whose SHA-256 the server checks before starting the one-hour clock.
+async function pwSecrets(pw, salt) {
+  const base = await crypto.subtle.importKey("raw", ENC.encode(pw), "PBKDF2", false, ["deriveBits"]);
+  const bits = new Uint8Array(await crypto.subtle.deriveBits({ name: "PBKDF2", salt, iterations: 310000, hash: "SHA-256" }, base, 512));
+  const key = await crypto.subtle.importKey("raw", bits.slice(0, 32), "AES-GCM", false, ["encrypt", "decrypt"]);
+  return { key, proof: bits.slice(32) };
 }
-const SHARE_MS = 60 * 60 * 1000;
+const VIEW_MS = 60 * 60 * 1000, LINK_MS = 7 * 24 * 60 * 60 * 1000;
 const fmtTime = d => d.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+const fmtDate = d => d.toLocaleDateString("he-IL", { day: "2-digit", month: "2-digit" }) + " " + fmtTime(d);
 
 async function drawTmpShares() {
   const now = Date.now(), snap = await getDocs(collection(db, "shares"));
-  const live = [];
+  const rows = [];
   for (const d of snap.docs) {
-    const exp = d.data().expiresAt.toMillis();
-    if (exp <= now) deleteDoc(d.ref).catch(() => {});  // tidy up expired copies
-    else live.push({ id: d.id, exp });
+    const x = d.data(), linkExp = x.linkExpiresAt ? x.linkExpiresAt.toMillis() : 0, opened = x.openedAt ? x.openedAt.toMillis() : null;
+    const dead = opened ? opened + VIEW_MS <= now : linkExp <= now;
+    if (dead) { deleteDoc(d.ref).catch(() => {}); deleteDoc(doc(db, "shareSalts", d.id)).catch(() => {}); continue; }
+    rows.push({ id: d.id, text: opened ? `נפתח ב-${fmtTime(new Date(opened))}, פעיל עד ${fmtTime(new Date(opened + VIEW_MS))}` : `ממתין לפתיחה (עד ${fmtDate(new Date(linkExp))})` });
   }
-  $("#tmpList").innerHTML = live.length
-    ? "<tbody>" + live.sort((a, b) => a.exp - b.exp).map(x => `<tr><td>קישור פעיל עד ${fmtTime(new Date(x.exp))}</td><td style="text-align:left"><button class="sm" type="button" data-kill="${x.id}">ביטול עכשיו</button></td></tr>`).join("") + "</tbody>"
+  $("#tmpList").innerHTML = rows.length
+    ? "<tbody>" + rows.map(x => `<tr><td>${x.text}</td><td style="text-align:left"><button class="sm" type="button" data-kill="${x.id}">ביטול עכשיו</button></td></tr>`).join("") + "</tbody>"
     : "";
 }
 $("#shareBtn").addEventListener("click", () => { $("#tmpOut").hidden = true; drawTmpShares().catch(() => {}); });
@@ -191,55 +199,65 @@ $("#tmpForm").onsubmit = async e => {
   const btn = $("#tmpBtn"); btn.disabled = true; btn.textContent = "מצפין…";
   try {
     const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
+    const { key, proof } = await pwSecrets(pw, salt);
+    const vh = new Uint8Array(await crypto.subtle.digest("SHA-256", proof));
     const plain = ENC.encode(JSON.stringify({ data: loadedData, state: { budgets: loadedState.budgets || {} } }));
-    const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await pwKey(pw, salt), plain);
+    const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plain);
     const id = toB64(crypto.getRandomValues(new Uint8Array(18))).replace(/[+/=]/g, c => ({ "+": "-", "/": "_", "=": "" }[c]));
-    const expiresAt = Timestamp.fromMillis(Date.now() + SHARE_MS);
-    await setDoc(doc(db, "shares", id), { ct: toB64(ct), iv: toB64(iv), salt: toB64(salt), expiresAt, createdAt: serverTimestamp() });
+    const linkExpiresAt = Timestamp.fromMillis(Date.now() + LINK_MS);
+    await setDoc(doc(db, "shares", id), { ct: toB64(ct), iv: toB64(iv), vh: Bytes.fromUint8Array(vh), linkExpiresAt, createdAt: serverTimestamp() });
+    await setDoc(doc(db, "shareSalts", id), { salt: toB64(salt), linkExpiresAt });
     $("#tmpLink").value = location.origin + location.pathname + "?s=" + id;
     $("#tmpOut").hidden = false; $("#tmpPw").value = "";
-    $("#shareMsg").textContent = `הקישור נוצר ויעבוד עד ${fmtTime(expiresAt.toDate())}. שלחו את הסיסמה בנפרד מהקישור.`;
+    $("#shareMsg").textContent = `הקישור נוצר. אפשר לפתוח אותו עד ${fmtDate(linkExpiresAt.toDate())}. השעה מתחילה ברגע שמכניסים את הסיסמה. שלחו את הסיסמה בנפרד מהקישור.`;
     await drawTmpShares();
   } catch (err) { $("#shareMsg").textContent = "יצירת הקישור נכשלה: " + (err.code || err.message); }
-  btn.disabled = false; btn.textContent = "יצירת קישור לשעה";
+  btn.disabled = false; btn.textContent = "יצירת קישור";
 };
 $("#tmpCopy").onclick = async () => { try { await navigator.clipboard.writeText($("#tmpLink").value); } catch { $("#tmpLink").select(); document.execCommand("copy"); } $("#tmpCopy").textContent = "הועתק ✓"; setTimeout(() => $("#tmpCopy").textContent = "העתקה", 2000); };
 $("#tmpList").onclick = async e => {
   const id = e.target.closest("[data-kill]")?.dataset.kill;
   if (!id) return;
-  try { await deleteDoc(doc(db, "shares", id)); $("#shareMsg").textContent = "הקישור בוטל."; await drawTmpShares(); }
+  try { await deleteDoc(doc(db, "shares", id)); await deleteDoc(doc(db, "shareSalts", id)); $("#shareMsg").textContent = "הקישור בוטל."; await drawTmpShares(); }
   catch (err) { $("#shareMsg").textContent = "הביטול נכשל: " + (err.code || err.message); }
 };
 
-// ---- viewer side: ?s=<id> asks for the password, decrypts, shows a read-only copy until expiry
+// ---- viewer side: ?s=<id> asks for the password; the first correct entry starts the hour
 if (shareId) {
-  gate("נתוני ניהול ההוצאות שותפו איתך לשעה. הכניסו את הסיסמה שקיבלתם.");
+  gate("נתוני ניהול ההוצאות שותפו איתך. הכניסו את הסיסמה שקיבלתם. מרגע הכניסה הנתונים פתוחים לשעה אחת.");
   $("#pwGate").hidden = false;
+  const closed = msg => { $("#pwGate").hidden = true; gate(msg); };
   $("#pwGate").onsubmit = async e => {
     e.preventDefault();
-    $("#gateMsg").textContent = "פותח…";
-    let snap;
-    const expired = () => { $("#pwGate").hidden = true; gate("הקישור פג (עברה שעה) או בוטל. בקשו קישור חדש."); };
-    try { snap = await getDoc(doc(db, "shares", shareId)); }
-    catch { return expired(); }
-    if (!snap.exists()) return expired();
-    const d = snap.data(), exp = d.expiresAt.toMillis();
-    let payload;
-    try {
-      const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: fromB64(d.iv) }, await pwKey($("#pwIn").value, fromB64(d.salt)), fromB64(d.ct));
-      payload = JSON.parse(DEC.decode(plain));
-    } catch {
-      gate("הסיסמה שגויה. נסו שוב."); $("#pwGate").hidden = false; $("#pwIn").value = ""; return;
+    $("#gateMsg").textContent = "בודק סיסמה…";
+    const shareRef = doc(db, "shares", shareId);
+    let saltDoc;
+    try { saltDoc = await getDoc(doc(db, "shareSalts", shareId)); } catch { return closed("הקישור פג או בוטל. בקשו קישור חדש."); }
+    if (!saltDoc.exists()) return closed("הקישור פג או בוטל. בקשו קישור חדש.");
+    const { key, proof } = await pwSecrets($("#pwIn").value, fromB64(saltDoc.data().salt));
+    const wrong = () => { gate("הסיסמה שגויה, או שזמן הצפייה כבר הסתיים."); $("#pwGate").hidden = false; $("#pwIn").value = ""; };
+    let snap = null;
+    try { snap = await getDoc(shareRef); } catch { /* not opened yet, or the hour is over */ }
+    if (!snap || !snap.exists()) {
+      // first opening: the server accepts this only if the proof matches the password
+      try { await updateDoc(shareRef, { openedAt: serverTimestamp(), proof: Bytes.fromUint8Array(proof) }); }
+      catch { return wrong(); }
+      try { snap = await getDoc(shareRef); } catch { return wrong(); }
     }
+    const d = snap.data();
+    let payload;
+    try { payload = JSON.parse(DEC.decode(await crypto.subtle.decrypt({ name: "AES-GCM", iv: fromB64(d.iv) }, key, fromB64(d.ct)))); }
+    catch { return wrong(); }
+    const exp = d.openedAt.toMillis() + VIEW_MS;
     document.body.classList.add("readonly");
     $("#gate").hidden = true; $("#app").hidden = false;
     window.renderApp(payload.data, payload.state || {}, () => {});
     const banner = $("#shareBanner"); banner.hidden = false;
     const tick = () => {
       const left = exp - Date.now();
-      if (left <= 0) {  // close the view on expiry; the server already refuses new reads
-        $("#app").innerHTML = ""; $("#app").hidden = true; $("#pwGate").hidden = true;
-        return gate("זמן הצפייה הסתיים. הנתונים נסגרו.");
+      if (left <= 0) {  // close the view; the server already refuses new reads
+        $("#app").innerHTML = ""; $("#app").hidden = true;
+        return closed("זמן הצפייה (שעה) הסתיים. הנתונים נסגרו.");
       }
       const m = Math.floor(left / 60000), sec = Math.floor(left / 1000) % 60;
       banner.textContent = `תצוגה משותפת לצפייה בלבד · נסגרת בעוד ${m}:${String(sec).padStart(2, "0")} (ב-${fmtTime(new Date(exp))})`;

@@ -164,10 +164,10 @@ dialog#drill::backdrop{background:rgba(0,0,0,.35)}
   <p class="small" id="shareMsg"></p>
   <hr style="border:0;border-top:1px solid var(--line);margin:16px 0">
   <h3>קישור זמני עם סיסמה</h3>
-  <p class="small">יוצר קישור לצפייה בלבד, שנפתח עם סיסמה שתבחר ועובד <b>שעה אחת</b>. הנתונים מוצפנים בדפדפן עם הסיסמה לפני השמירה, ואחרי שעה השרת חוסם את הגישה. את הסיסמה שולחים בנפרד מהקישור.</p>
+  <p class="small">יוצר קישור לצפייה בלבד שנפתח עם סיסמה שתבחר. <b>השעה מתחילה ברגע שמכניסים את הסיסמה</b>, ואחריה השרת חוסם את הגישה. קישור שלא נפתח תוך 7 ימים פג מעצמו. הנתונים מוצפנים בדפדפן עם הסיסמה, ואת הסיסמה שולחים בנפרד מהקישור.</p>
   <form id="tmpForm" class="filters" style="margin:10px 0">
     <input type="password" id="tmpPw" placeholder="סיסמה (לפחות 8 תווים)" minlength="8" required autocomplete="new-password" style="flex:1;min-width:180px;font:inherit;font-size:16px;padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)">
-    <button class="pri" type="submit" id="tmpBtn">יצירת קישור לשעה</button>
+    <button class="pri" type="submit" id="tmpBtn">יצירת קישור</button>
   </form>
   <div id="tmpOut" hidden class="filters" style="margin:6px 0">
     <input type="text" id="tmpLink" readonly style="flex:1;min-width:180px;font:inherit;font-size:16px;padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)">
@@ -805,7 +805,7 @@ drawCredit();
 drawMonth(); drawTx(); showTab();
 };
 </script>
-<script type="module" src="app.js?v=11"></script>
+<script type="module" src="app.js?v=12"></script>
 <script>
 // If the app module fails to load (old cached files, blocked script), say so instead of hanging on "טוען…".
 setTimeout(() => {

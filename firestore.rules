@@ -33,20 +33,45 @@ service cloud.firestore {
       allow delete: if isOwner();
     }
 
-    // Temporary password shares. The owner stores a copy of the data that was
-    // encrypted in the browser with a password (AES-GCM, PBKDF2 key), so the
-    // server never sees the password or the plain data. Anyone holding the
-    // random link id can fetch the encrypted copy, but only until expiresAt
-    // (at most ~1 hour after creation); after that reads are refused.
-    match /shares/{id} {
-      allow get: if request.time < resource.data.expiresAt;
+    // Temporary password shares. The owner stores a copy of the data encrypted in
+    // the browser with a key derived from a password; the server never sees the
+    // password or the plain data. Two documents per link:
+    //   /shareSalts/{id}  only the PBKDF2 salt; readable while the link is valid
+    //                     (up to 7 days) so a viewer can derive keys from the password.
+    //   /shares/{id}      ciphertext + vh = SHA-256 of a password-derived "proof".
+    //                     Unreadable until the first opening. Whoever knows the
+    //                     password sends the proof; if its hash matches vh the server
+    //                     stamps openedAt, and the copy is readable for exactly one
+    //                     hour from that moment, never again after. Without the
+    //                     password nothing but the salt is visible, so the password
+    //                     cannot be attacked offline.
+    function opened() { return 'openedAt' in resource.data; }
+
+    match /shareSalts/{id} {
+      allow get: if request.time < resource.data.linkExpiresAt;
       allow list, delete: if isOwner();
       allow create: if isOwner()
-                    && request.resource.data.keys().hasOnly(['ct', 'iv', 'salt', 'expiresAt', 'createdAt'])
+                    && request.resource.data.keys().hasOnly(['salt', 'linkExpiresAt'])
+                    && request.resource.data.salt is string
+                    && request.resource.data.linkExpiresAt <= request.time + duration.value(7 * 24 * 60 + 5, 'm');
+    }
+
+    match /shares/{id} {
+      allow get: if opened() && request.time < resource.data.openedAt + duration.value(60, 'm');
+      allow list, delete: if isOwner();
+      allow create: if isOwner()
+                    && request.resource.data.keys().hasOnly(['ct', 'iv', 'vh', 'linkExpiresAt', 'createdAt'])
                     && request.resource.data.ct is string
-                    && request.resource.data.expiresAt is timestamp
-                    && request.resource.data.expiresAt <= request.time + duration.value(61, 'm');
-      allow update: if false;
+                    && request.resource.data.vh is bytes
+                    && request.resource.data.linkExpiresAt is timestamp
+                    && request.resource.data.linkExpiresAt <= request.time + duration.value(7 * 24 * 60 + 5, 'm');
+      // First opening only: prove the password; openedAt must be the server's time.
+      allow update: if !opened()
+                    && request.time < resource.data.linkExpiresAt
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['openedAt', 'proof'])
+                    && request.resource.data.openedAt == request.time
+                    && request.resource.data.proof is bytes
+                    && hashing.sha256(request.resource.data.proof) == resource.data.vh;
     }
 
     // Everything else (including the old QR-scan records) is closed.
