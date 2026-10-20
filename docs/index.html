@@ -90,6 +90,11 @@ tr.over td{background:var(--overbg)}
 .bars .bar>span{display:block;height:100%;background:var(--out);border-radius:4px 0 0 4px}
 .bars .num{text-align:left;font-variant-numeric:tabular-nums;color:var(--ink2)}
 .ins{display:grid;gap:12px}
+#insSummary{margin-bottom:18px;border:2px solid var(--accent);padding:22px 24px}
+#insSummary h3{font-size:24px;line-height:1.35;margin:0 0 10px}
+#insSummary ul{margin:0;padding-inline-start:20px;color:var(--ink2);font-size:17px}
+#insSummary li{margin:6px 0}
+#insSummary .cta{margin-top:12px;font-weight:700;color:var(--accent)}
 .ins .card{display:grid;grid-template-columns:44px 1fr;gap:14px}
 .ins .n{width:40px;height:40px;border-radius:12px;background:var(--chip);display:grid;place-items:center;font-weight:800;font-size:18px}
 .ins p{margin:4px 0;color:var(--ink2)}
@@ -300,6 +305,7 @@ dialog#drill::backdrop{background:rgba(0,0,0,.35)}
 <section class="tab" id="insights">
   <h2>מה אפשר לעשות כדי שיישאר יותר כסף</h2>
   <p class="sub">לפי סדר ההשפעה. החיסכון המשוער שמרני.</p>
+  <div class="card" id="insSummary" hidden></div>
   <div class="ins" id="insList"></div>
 </section>
 
@@ -588,6 +594,16 @@ $('#budReset').onclick=()=>{ if(confirm('להחזיר את כל התקציבים
 })();
 
 // ---------- insights
+// overview card: the whole picture in a few lines, numbers taken from the live forecast
+(function(){
+  const S=C.summary; if(!S) return;
+  const f=forecast(false), round=n=>Math.round(n/500)*500;
+  const fixed=sumBy(f.out.filter(r=>CAT[r[0]]&&CAT[r[0]].fixed),r=>r[1]);
+  const vals={tin:fmt(round(f.tin)), tout:fmt(round(f.tout)), gap:fmt(round(Math.max(0,f.tout-f.tin))), fixed:fmt(round(fixed))};
+  const fill=t=>esc(t).replace(/\{\{(\w+)\}\}/g,(m,k)=>k in vals?'<b>'+vals[k]+'</b>':m);
+  const box=$('#insSummary'); box.hidden=false;
+  box.innerHTML=`<h3>${fill(S.t)}</h3><ul>${S.p.map(x=>`<li>${fill(x)}</li>`).join('')}</ul>${S.cta?`<div class="cta">${fill(S.cta)} ↓</div>`:''}`;
+})();
 $('#insList').innerHTML=C.insights.map((x,i)=>`<div class="card"><div class="n">${i+1}</div><div><h3>${esc(x.t)}</h3>${x.p.map(p=>`<p>${esc(p)}</p>`).join('')}${x.save?`<span class="pill save">${esc(x.save)}</span>`:''}${x.tag?`<span class="pill tag">${esc(x.tag)}</span>`:''}</div></div>`).join('');
 
 // ---------- pension
@@ -852,7 +868,7 @@ drawCredit();
 drawMonth(); drawTx(); showTab();
 };
 </script>
-<script type="module" src="app.js?v=17"></script>
+<script type="module" src="app.js?v=18"></script>
 <script>
 // If the app module fails to load (old cached files, blocked script), say so instead of hanging on "טוען…".
 setTimeout(() => {
