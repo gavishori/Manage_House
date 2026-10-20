@@ -103,6 +103,8 @@ tr.over td{background:var(--overbg)}
 .q{margin-bottom:12px}
 .q .qh{display:flex;gap:10px;align-items:baseline;justify-content:space-between;flex-wrap:wrap}
 .q .amtq{color:var(--ink2);font-size:15px}
+.q h3.qsrc{cursor:pointer} .q h3.qsrc:hover{color:var(--accent)}
+.q .srclink{font-size:14px;font-weight:700;color:var(--accent);margin-inline-start:6px;white-space:nowrap}
 .q p{margin:6px 0 10px;color:var(--ink2)}
 .q textarea{width:100%;min-height:64px;font:inherit;font-size:16px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);resize:vertical}
 .q.done{border-color:color-mix(in srgb,var(--pos) 45%,var(--line))}
@@ -626,7 +628,7 @@ $('#insList').innerHTML=C.insights.map((x,i)=>`<div class="card"><div class="n">
 $('#learnTbl').innerHTML='<tbody>'+C.learned.map(r=>`<tr><td style="width:34%;font-weight:600">${esc(r[0])}</td><td>${esc(r[1])}</td></tr>`).join('')+'</tbody>';
 const ANS_KEY='mh-fin-answers-r2';
 let ANS=STATE.answers || store.get(ANS_KEY,{});
-const qCard=(q,i)=>`<div class="card q" id="q-${q.id}"><div class="qh"><h3>${i+1}. ${esc(q.t)}</h3><span class="st"></span></div>${q.a?`<div class="amtq">${esc(q.a)}</div>`:''}<p>${esc(q.p)}</p><textarea data-id="${q.id}" placeholder="התשובה שלך…"></textarea></div>`;
+const qCard=(q,i)=>`<div class="card q" id="q-${q.id}"><div class="qh"><h3${q.src?` class="qsrc" data-q="${q.id}" title="לחצו כדי לראות על מה השאלה מבוססת"`:''}>${i+1}. ${esc(q.t)}${q.src?' <span class="srclink">מקור ›</span>':''}</h3><span class="st"></span></div>${q.a?`<div class="amtq">${esc(q.a)}</div>`:''}<p>${esc(q.p)}</p><textarea data-id="${q.id}" placeholder="התשובה שלך…"></textarea></div>`;
 // Questions answered before this load go to the collapsed "answered" list; the rest stay on top.
 const isAns=q=>(ANS[q.id]||'').trim().length>0, answeredAtLoad=C.questions.filter(isAns);
 $('#qList').innerHTML=C.questions.map((q,i)=>isAns(q)?'':qCard(q,i)).join('') || '<div class="card small">ענית על כל השאלות. לחצו ״העתק את כל התשובות״ והדביקו ל-Claude.</div>';
@@ -641,6 +643,19 @@ function refreshQ(){
 }
 document.querySelectorAll('#qList textarea, #qDone textarea').forEach(ta=>{ ta.value=ANS[ta.dataset.id]||''; ta.oninput=()=>{ANS[ta.dataset.id]=ta.value; store.set(ANS_KEY,ANS); saveState({answers:ANS}); refreshQ();}; });
 refreshQ();
+// click a question to see what it is based on: why it is asked, the documents, and the transactions
+function openQuestionSource(id){
+  const q=C.questions.find(x=>x.id===id); if(!q||!q.src) return;
+  const src=q.src, rx=src.match?new RegExp(src.match):null;
+  const rows=(rx||src.cat)?L.filter(t=>(!rx||rx.test(t.desc))&&(!src.cat||t.cat===src.cat)&&(!src.from||t.d>=src.from)):null;
+  const docs=(src.docs||[]).map(n=>(C.manual_sources||[]).find(m=>m.name===n)||{name:n});
+  let html=src.note?`<p style="margin:0 0 14px">${esc(src.note)}</p>`:'';
+  if(docs.length) html+='<h3 style="font-size:16px;margin:4px 0 6px">מסמכים</h3><table style="margin-bottom:16px"><tbody>'+
+    docs.map(m=>`<tr><td><b>${esc(m.name)}</b>${m.date?` <span class="small">${dmy(m.date)}.${m.date.slice(2,4)}</span>`:''}<div class="small">${esc(m.content||'')}</div></td></tr>`).join('')+'</tbody></table>';
+  if(rows) html+=`<h3 style="font-size:16px;margin:4px 0 6px">התנועות שהשאלה מבוססת עליהן${src.from?` (מ-${dmy(src.from)}.${src.from.slice(2,4)})`:''}</h3>`;
+  openDrill({title:q.t, sub:q.a?esc(q.a):'', total:null, rows, html});  // a total would mix payments, premiums and refunds
+}
+['#qList','#qDone'].forEach(sel=>$(sel).addEventListener('click',e=>{ const h=e.target.closest('h3.qsrc'); if(h) openQuestionSource(h.dataset.q); }));
 const answersText=()=>{
   const ids=new Set(C.questions.map(q=>q.id));
   const older=Object.entries(ANS).filter(([k,v])=>!ids.has(k)&&(v||'').trim());  // answers to questions since removed from the list
@@ -868,7 +883,7 @@ drawCredit();
 drawMonth(); drawTx(); showTab();
 };
 </script>
-<script type="module" src="app.js?v=18"></script>
+<script type="module" src="app.js?v=19"></script>
 <script>
 // If the app module fails to load (old cached files, blocked script), say so instead of hanging on "טוען…".
 setTimeout(() => {
