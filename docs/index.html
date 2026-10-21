@@ -278,7 +278,7 @@ dialog#drill::backdrop{background:rgba(0,0,0,.35)}
   <div class="filters"><select id="ccSel"></select><span class="small" id="ccNote"></span></div>
   <div class="kpis" style="margin-top:0">
     <div class="card kpi" data-cc="month"><div class="lab">חיוב מקס בחודש</div><div class="val" id="cc-m"></div><div class="note" id="cc-m2"></div></div>
-    <div class="card kpi" data-cc="isra"><div class="lab" id="cc-il">ישראכרט בחודש</div><div class="val" id="cc-i"></div><div class="note">קניות שוטפות של הילדים, בלי פירוט</div></div>
+    <div class="card kpi" data-cc="isra"><div class="lab" id="cc-il">ישראכרט בחודש</div><div class="val" id="cc-i"></div><div class="note" id="cc-i2">קניות שוטפות לבית (הכרטיס אצל הילדים)</div></div>
     <div class="card kpi" data-cc="so"><div class="lab">הוראות קבע בכרטיס</div><div class="val" id="cc-s"></div><div class="note" id="cc-s2"></div></div>
     <div class="card kpi" data-cc="inst"><div class="lab">יתרת תשלומים פתוחים</div><div class="val" id="cc-t"></div><div class="note" id="cc-t2"></div></div>
   </div>
@@ -761,7 +761,9 @@ document.querySelectorAll('[data-drill]').forEach(el=>el.addEventListener('click
 
 // ---------- credit tab
 const CARDS_L = L.filter(t=>t.src==='card');
-const ISRA_L = L.filter(t=>t.src==='bank' && /ישראכרט/.test(t.desc));
+const isIsr = t => t.issuer==='isracard' || (t.src==='bank' && /ישראכרט/.test(t.desc));
+const ISRA_L = L.filter(isIsr);           // itemized statements, or the bank's monthly total when missing
+const ISRA_BANK = ISRA_L.filter(t=>t.src==='bank');
 const cardLabel = n => (C.cards && C.cards[n]) || (n==='isra' ? 'ישראכרט' : 'כרטיס ' + n);
 $('#cc-il').textContent = cardLabel('isra') + ' בחודש';
 const cardIds = [...new Set(CARDS_L.map(t=>t.card))].sort((a,b)=>sumBy(CARDS_L.filter(t=>t.card===a),t=>t.amt)-sumBy(CARDS_L.filter(t=>t.card===b),t=>t.amt));
@@ -784,11 +786,11 @@ ccMonths.slice().reverse().forEach(m=>{ const o=document.createElement('option')
 $('#ccSel').value = ccMonths.filter(m=>m<=DATA.today.slice(0,7)).pop() || ccMonths[ccMonths.length-1];
 
 function drawCredit(){
-  const m=$('#ccSel').value, rows=CARDS_L.filter(t=>t.d.startsWith(m)), isr=ISRA_L.filter(t=>t.d.startsWith(m));
+  const m=$('#ccSel').value, rows=CARDS_L.filter(t=>t.d.startsWith(m)), maxRows=rows.filter(t=>!isIsr(t)), isr=ISRA_L.filter(t=>t.d.startsWith(m));
   $('#ccNote').textContent = m>DATA.today.slice(0,7) ? 'חיוב עתידי: אלה עסקאות שכבר נעשו וירדו במועד החיוב הבא' : '';
-  const tot=-sumBy(rows,t=>t.amt);
+  const tot=-sumBy(maxRows,t=>t.amt);
   $('#cc-m').textContent=ils(tot);
-  $('#cc-m2').textContent=cardIds.map(c=>[c,-sumBy(rows.filter(t=>t.card===c),t=>t.amt)]).filter(x=>Math.round(x[1])).map(([c,v])=>`${c}: ${ils(v)}`).join(' · ');
+  $('#cc-m2').textContent=cardIds.map(c=>[c,-sumBy(maxRows.filter(t=>t.card===c),t=>t.amt)]).filter(x=>Math.round(x[1])).map(([c,v])=>`${c}: ${ils(v)}`).join(' · ');
   $('#cc-i').textContent=ils(-sumBy(isr,t=>t.amt));
   const so=rows.filter(isSO);
   $('#cc-s').textContent=ils(-sumBy(so,t=>t.amt)); $('#cc-s2').textContent=`${so.length} חיובים החודש`;
@@ -797,7 +799,7 @@ function drawCredit(){
 
   // pivot: months x cards
   const cols=[...cardIds.map(c=>({id:c, name:cardLabel(c), rows:m2=>CARDS_L.filter(t=>t.card===c&&t.d.startsWith(m2))})),
-              {id:'isra', name:cardLabel('isra'), rows:m2=>ISRA_L.filter(t=>t.d.startsWith(m2))}];
+              ...(ISRA_BANK.length?[{id:'isra', name:cardLabel('isra'), rows:m2=>ISRA_BANK.filter(t=>t.d.startsWith(m2))}]:[])];
   $('#ccPivot').innerHTML='<thead><tr><th>חודש חיוב</th>'+cols.map(c=>`<th class="amt">${esc(c.name)}</th>`).join('')+'<th class="amt">סה״כ</th></tr></thead><tbody>'+
     ccMonths.slice().reverse().map(m2=>{ let rowTot=0;
       const cells=cols.map(c=>{ const v=-sumBy(c.rows(m2),t=>t.amt); rowTot+=v; return `<td class="amt" style="cursor:${v?'pointer':'default'}" data-pm="${m2}" data-pc="${c.id}">${v?ils(v):'<span class="small">—</span>'}</td>`; }).join('');
@@ -844,8 +846,8 @@ $('#ccInst').querySelectorAll('tr[data-ii]').forEach(tr=>tr.onclick=()=>{ const 
 $('#ccSel').onchange=drawCredit;
 document.querySelectorAll('[data-cc]').forEach(el=>el.addEventListener('click',()=>{
   const m=$('#ccSel').value, k=el.dataset.cc;
-  if(k==='month'){ const rs=CARDS_L.filter(t=>t.d.startsWith(m)); openDrill({title:`חיוב מקס, ${mLabel(m)}`, sub:'כל הכרטיסים, לפי מועד החיוב', total:sumBy(rs,t=>t.amt), rows:rs, filter:{m, src:'card'}}); }
-  if(k==='isra'){ openDrill({title:cardLabel('isra'), sub:'החיובים החודשיים בחשבון הבנק (הכרטיס הוא של הבנק). לפירוט העסקאות צריך ייצוא מישראכרט.', total:sumBy(ISRA_L,t=>t.amt), rows:ISRA_L, filter:{cat:'ישראכרט (קניות הילדים)'}}); }
+  if(k==='month'){ const rs=CARDS_L.filter(t=>t.d.startsWith(m)&&!isIsr(t)); openDrill({title:`חיוב מקס, ${mLabel(m)}`, sub:'כל הכרטיסים, לפי מועד החיוב', total:sumBy(rs,t=>t.amt), rows:rs, filter:{m, src:'card'}}); }
+  if(k==='isra'){ const rs=ISRA_L.filter(t=>t.d.startsWith(m)); openDrill({title:`${cardLabel('isra')}, ${mLabel(m)}`, sub: ISRA_BANK.length?'בחודשים בלי דף פירוט מוצג רק החיוב החודשי מהבנק.':'כל העסקאות מדף הפירוט החודשי של ישראכרט.', total:sumBy(rs,t=>t.amt), rows:rs}); }
   if(k==='so'){ const rs=CARDS_L.filter(t=>t.d.startsWith(m)&&isSO(t)); openDrill({title:`הוראות קבע, ${mLabel(m)}`, total:sumBy(rs,t=>t.amt), rows:rs}); }
   if(k==='inst'){ document.querySelector('#ccInst').scrollIntoView({behavior:'smooth'}); }
 }));
@@ -861,7 +863,7 @@ drawCredit();
   const S=DATA.sources, today=new Date(DATA.today);
   const daysAgo = d => Math.round((today - new Date(d))/86400000);
   const per = p => p ? `${dmy(p[0])}.${p[0].slice(2,4)} – ${dmy(p[1])}.${p[1].slice(2,4)}` : '—';
-  const kinds=[['bank','בנק (עו״ש)'],['card','כרטיסי אשראי (מקס)'],['bit','bit'],['slip','תלושי פנסיה']];
+  const kinds=[['bank','בנק (עו״ש)'],['card','כרטיסי אשראי (מקס וישראכרט)'],['bit','bit'],['slip','תלושי פנסיה']];
   $('#srcKpis').innerHTML=kinds.map(([k,lab])=>{
     const fs=S.filter(f=>f.kind===k&&f.period); if(!fs.length) return `<div class="card kpi"><div class="lab">${lab}</div><div class="val neg">אין</div><div class="note">לא נמצא קובץ</div></div>`;
     const from=fs.map(f=>f.period[0]).sort()[0], to=fs.map(f=>f.period[1]).sort().pop(), age=daysAgo(to);
@@ -883,7 +885,7 @@ drawCredit();
 drawMonth(); drawTx(); showTab();
 };
 </script>
-<script type="module" src="app.js?v=19"></script>
+<script type="module" src="app.js?v=20"></script>
 <script>
 // If the app module fails to load (old cached files, blocked script), say so instead of hanging on "טוען…".
 setTimeout(() => {

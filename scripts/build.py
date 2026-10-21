@@ -130,6 +130,76 @@ def load_bit(files):
     return sorted({json.dumps(x, ensure_ascii=False): x for x in out}.values(), key=lambda x: x["d"])
 
 
+# ---------------------------------------------------------------- PDF text (read each file once)
+_PDF_CACHE = {}
+
+
+def pdf_lines(f):
+    if f not in _PDF_CACHE:
+        with pdfplumber.open(f) as pdf:
+            _PDF_CACHE[f] = [l for p in pdf.pages for l in (p.extract_text() or "").split("\n")]
+    return _PDF_CACHE[f]
+
+
+# ---------------------------------------------------------------- Isracard statements (PDF)
+ISR_TX = re.compile(r"(-?[\d,]+\.\d\d) (-?[\d,]+\.\d\d) (.+?) (\d\d/\d\d/\d\d)$")
+ISR_TOT = re.compile(r"(-?[\d,]+\.\d\d) (\d\d/\d\d/\d\d) ךיראתל בויח כ\"הס")
+ISR_HDR = re.compile(r"(\d\d/\d\d/\d\d) :ךיראתל ךיתולועפ טורפ")
+ISR_CARD = re.compile(r"(\d{4}) :תורפסב םייתסמש סיטרכ")
+METHODS = ("תש.נייד", "טלפוני", "אינטרנט", "הו\"ק", "ה.קבע")
+
+
+def logical(text):
+    # pdfplumber gives these RTL statements mirrored: flip the line, then flip Latin/digit runs back
+    return re.sub(r"[A-Za-z0-9][A-Za-z0-9 &'.\-]*[A-Za-z0-9]|[A-Za-z0-9]", lambda m: m.group(0)[::-1], text[::-1])
+
+
+def yymmdd(d):
+    return f"20{d[6:8]}-{d[3:5]}-{d[0:2]}"
+
+
+def load_isracard(files):
+    """Monthly Isracard statements: one row per purchase, dated by the statement's charge date."""
+    rows, totals = {}, []
+    for f in files:
+        lines = pdf_lines(f)
+        if not any(ISR_HDR.search(l) for l in lines):
+            continue
+        card = next((ISR_CARD.search(l).group(1) for l in lines if ISR_CARD.search(l)), "")
+        pending = []
+        for l in lines:
+            m = ISR_TX.search(l)
+            if m:
+                pending.append(m)
+                continue
+            t = ISR_TOT.search(l)
+            if not t:
+                continue
+            charge = yymmdd(t.group(2))
+            # a club discount is printed on the same summary line; the bank charges the total after it
+            dm = re.search(r"הנח\s?ה\s?(\d+\.\d\d)", logical(l))
+            disc = float(dm.group(1)) if dm else 0.0
+            totals.append((charge, round(float(t.group(1).replace(",", "")) - disc, 2)))
+            if disc:
+                rows[(charge, charge, "הנחת מועדון", -disc, -1)] = dict(td=charge, d=charge, m="הנחת מועדון (ישראכרט)", mcat="הנחה",
+                                                                       card=card, kind="זיכוי", a=-disc, cur="₪", note="", issuer="isracard")
+            for i, m in enumerate(pending):  # a section's purchases are charged on its total line's date
+                charged, deal = (float(x.replace(",", "")) for x in (m.group(1), m.group(2)))
+                text = logical(m.group(3))
+                foreign = any(c in text for c in "€$£")
+                toks = [w for w in re.sub(r"[€$£]", " ", text).split() if w != "א"]
+                method = toks.pop(0) if toks and (toks[0] in METHODS or toks[0].startswith("תש.")) else ""
+                sector = "" if foreign else (toks.pop() if len(toks) > 1 else "")
+                note = "הוראת קבע" if method in ("הו\"ק", "ה.קבע") else ""
+                if abs(charged - deal) > 0.005 and not foreign:
+                    note = (note + " · " if note else "") + f"תשלום מתוך עסקה של {deal:,.2f}"
+                it = dict(td=yymmdd(m.group(4)), d=charge, m=" ".join(toks), mcat=sector or ("חו״ל" if foreign else ""),
+                          card=card, kind="רגילה", a=charged, cur="€" if foreign else "₪", note=note, issuer="isracard")
+                rows[(it["td"], it["d"], it["m"], it["a"], i)] = it
+            pending = []
+    return sorted(rows.values(), key=lambda x: (x["d"], x["td"])), sorted(set(totals))
+
+
 # ---------------------------------------------------------------- payslips
 MONTHS = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"]
 EXTRAS = ["דמי הבראה", "ביגוד", "מענק יובל", "מענק"]
@@ -147,8 +217,7 @@ def fix_line(line):
 def load_payslips(files):
     out = []
     for f in files:
-        with pdfplumber.open(f) as pdf:
-            lines = [fix_line(l) for p in pdf.pages for l in (p.extract_text() or "").split("\n")]
+        lines = [fix_line(l) for l in pdf_lines(f)]
         text = "\n".join(lines)
         m = re.search(r"פירוט תשלומים וניכויים - חודש (\S+) (\d{4})", text)
         if not m or m.group(1) not in MONTHS:
@@ -211,6 +280,11 @@ def describe_sources(files):
                 t = load_bit([f])
                 d = [x["d"] for x in t]
                 row.update(kind="bit", label="bit", rows=len(t), period=[min(d), max(d)] if d else None)
+            elif ext == ".pdf" and any(ISR_HDR.search(l) for l in pdf_lines(f)):
+                t, tot = load_isracard([f])
+                charges = sorted({x["d"] for x in t})
+                row.update(kind="card", label="ישראכרט: דף פירוט חודשי", rows=len(t), period=[min(x["td"] for x in t), max(charges)],
+                           detail=f"כרטיס {t[0]['card']} · חיוב {', '.join(dmy for dmy in charges)} · סה״כ {sum(v for _, v in tot):,.2f}")
             elif ext == ".pdf":
                 sl = load_payslips([f])
                 if sl:
@@ -231,31 +305,44 @@ def main():
     files = sorted(RAW.glob("*"))
     bank, balance = load_bank([f for f in files if f.suffix.lower() == ".xls"])
     cards = load_cards([f for f in files if f.suffix.lower() == ".xlsx"])
+    for c in cards:
+        c["issuer"] = "max"
+    isr, isr_totals = load_isracard([f for f in files if f.suffix.lower() == ".pdf"])
     bit = load_bit([f for f in files if f.suffix.lower() == ".csv"])
     slips = load_payslips([f for f in files if f.suffix.lower() == ".pdf"])
     if not bank:
         sys.exit("No bank export (.xls) found in finance/private/raw/")
 
     b_from, b_to = bank[0]["d"], bank[-1]["d"]
-    c_from = min((c["d"] for c in cards), default="9999")
-    c_to = max((c["d"] for c in cards), default="0000")
+    # each issuer's bank charge is replaced by its itemized purchases, where the export covers that date
+    coverage = {k: (min((c["d"] for c in v), default="9999"), max((c["d"] for c in v), default="0000"))
+                for k, v in (("max", cards), ("isracard", isr))}
+    fallback = {"max": "כרטיס מקס (ללא פירוט)", "isracard": "ישראכרט (קניות הילדים)"}
+    c_from, c_to = coverage["max"]
 
     ledger, unknown = [], set(cfg["categories"])
     for t in bank:
         direction = "in" if t["inn"] > 0 else "out"
         cat = first_match(cfg["bank_rules"], text=t["desc"], dir=direction)
         if cat == "@card":
-            if c_from <= t["d"] <= c_to:
+            issuer = "isracard" if "ישראכרט" in t["desc"] else "max"
+            lo, hi = coverage[issuer]
+            if lo <= t["d"] <= hi:
                 continue  # detailed in the card export instead
-            cat = "כרטיס מקס (ללא פירוט)"
+            cat = fallback[issuer]
         ledger.append(dict(d=t["d"], src="bank", desc=t["desc"], cat=cat, amt=round(t["inn"] - t["out"], 2)))
-    for c in cards:
+    # sanity check: each Isracard statement total should equal the bank charge of that date
+    bank_isr = {t["d"]: t["out"] for t in bank if "ישראכרט" in t["desc"]}
+    for d, v in isr_totals:
+        if d in bank_isr and abs(bank_isr[d] - v) > 0.01:
+            print(f"NOTE: Isracard statement {d} totals {v:,.2f} but the bank charged {bank_isr[d]:,.2f}")
+    for c in cards + isr:
         if not (b_from <= c["d"]):
             continue
         cat = first_match(cfg["card_rules"], text=c["m"] + (" USA" if c["cur"] not in ("", "₪") else ""),
                           mcat=c["mcat"], card=c["card"])
         ledger.append(dict(d=c["d"], td=c["td"], src="card", desc=c["m"], cat=cat, amt=-c["a"],
-                           card=c["card"], note=c["note"], kind=c["kind"]))
+                           card=c["card"], note=c["note"], kind=c["kind"], issuer=c["issuer"]))
     # categories of kind "ignore" (e.g. a card used only for someone else's apartment) never reach the app
     ignored = {c for c, v in cfg["categories"].items() if v.get("kind") == "ignore"}
     dropped = sum(1 for x in ledger if x["cat"] in ignored)
@@ -273,7 +360,7 @@ def main():
         coverage=dict(bank=[b_from, b_to], card=[c_from, c_to],
                       bit=[bit[0]["d"], bit[-1]["d"]] if bit else None,
                       slips=[slips[0]["month"], slips[-1]["month"]] if slips else None),
-        counts=dict(bank=len(bank), card=len(cards), bit=len(bit), slips=len(slips)),
+        counts=dict(bank=len(bank), card=len(cards) + len(isr), bit=len(bit), slips=len(slips)),
         sources=describe_sources(files),
         ledger=ledger, balance=balance, bit=bit, slips=slips,
         config={k: cfg[k] for k in ("title", "household", "categories", "forecast", "fixed_commitments",
