@@ -364,7 +364,7 @@ dialog#drill::backdrop{background:rgba(0,0,0,.35)}
       <select id="txM"><option value="">כל החודשים</option></select>
       <select id="txC"><option value="">כל הקטגוריות</option></select>
       <select id="txS"><option value="">כל המקורות</option><option value="bank">בנק</option><option value="card">כרטיסי מקס</option></select>
-      <input type="search" id="txQ" placeholder="חיפוש…">
+      <input type="search" id="txQ" placeholder="חיפוש, או מספר כרטיס…">
       <span class="small" id="txSum"></span>
     </div>
     <div class="tblwrap"><table id="txTbl"></table></div>
@@ -669,7 +669,7 @@ $('#dlBtn').onclick=()=>{const a=document.createElement('a'); a.href=URL.createO
 [...new Set(L.map(t=>t.cat))].sort().forEach(c=>{const o=document.createElement('option'); o.textContent=c; $('#txC').appendChild(o);});
 function drawTx(){
   const m=$('#txM').value, c=$('#txC').value, s=$('#txS').value, q=$('#txQ').value.trim();
-  const rows=L.filter(t=>(!m||t.d.startsWith(m))&&(!c||t.cat===c)&&(!s||t.src===s)&&(!q||t.desc.includes(q)||t.cat.includes(q)||(t.note||'').includes(q))).slice().reverse();
+  const rows=L.filter(t=>(!m||t.d.startsWith(m))&&(!c||t.cat===c)&&(!s||t.src===s)&&(!q||t.desc.includes(q)||t.cat.includes(q)||(t.note||'').includes(q)||(t.card||'')===q)).slice().reverse();
   $('#txSum').textContent=`${rows.length} תנועות · נטו ${ils(sumBy(rows,t=>t.amt))}`;
   $('#txTbl').innerHTML='<thead><tr><th>תאריך</th><th>תיאור</th><th class="hide-sm">קטגוריה</th><th class="amt">סכום</th></tr></thead><tbody>'+
     rows.slice(0,800).map(t=>`<tr><td class="small">${dmy(t.d)}</td><td>${esc(t.desc)}${t.src==='card'?` <span class="small">· ${t.card}${t.note?' · '+esc(t.note):''}</span>`:''}<div class="small" style="display:none"></div></td><td class="small hide-sm">${esc(t.cat)}</td><td class="amt ${t.amt>0?'p':''}">${t.amt>0?'+':''}${ils(t.amt)}</td></tr>`).join('')+'</tbody>';
@@ -902,7 +902,7 @@ drawCredit();
 drawMonth(); drawTx(); showTab();
 };
 </script>
-<script type="module" src="app.js?v=22"></script>
+<script type="module" src="app.js?v=23"></script>
 <script>
 // If the app module fails to load (old cached files, blocked script), say so instead of hanging on "טוען…".
 setTimeout(() => {
