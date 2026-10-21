@@ -125,9 +125,9 @@ dialog#drill::backdrop{background:rgba(0,0,0,.35)}
 #drill h3{margin:0;font-size:20px}
 #drill .tot{font-size:26px;font-weight:800;font-variant-numeric:tabular-nums}
 #drill tr.click{cursor:pointer} #drill tr.click:hover td{background:var(--chip)}
-[data-drill],[data-cc]{cursor:pointer;transition:border-color .15s}
-[data-drill]:hover,[data-cc]:hover{border-color:var(--accent)}
-.kpi[data-drill] .lab::after,.kpi[data-cc] .lab::after{content:" ›";color:var(--accent);font-weight:800}
+[data-drill],[data-cc],[data-srck]{cursor:pointer;transition:border-color .15s}
+[data-drill]:hover,[data-cc]:hover,[data-srck]:hover{border-color:var(--accent)}
+.kpi[data-drill] .lab::after,.kpi[data-cc] .lab::after,.kpi[data-srck] .lab::after{content:" ›";color:var(--accent);font-weight:800}
 #fcIn tbody tr,#fcOut tbody tr{cursor:pointer} #fcIn tbody tr:hover td,#fcOut tbody tr:hover td{background:var(--chip)}
 @media (max-width:560px){
   body{font-size:16px} header h1{font-size:25px}
@@ -867,8 +867,25 @@ drawCredit();
   $('#srcKpis').innerHTML=kinds.map(([k,lab])=>{
     const fs=S.filter(f=>f.kind===k&&f.period); if(!fs.length) return `<div class="card kpi"><div class="lab">${lab}</div><div class="val neg">אין</div><div class="note">לא נמצא קובץ</div></div>`;
     const from=fs.map(f=>f.period[0]).sort()[0], to=fs.map(f=>f.period[1]).sort().pop(), age=daysAgo(to);
-    return `<div class="card kpi"><div class="lab">${lab}</div><div class="val" style="font-size:22px">עד ${dmy(to)}.${to.slice(2,4)}</div><div class="note">מ-${dmy(from)}.${from.slice(2,4)} · ${fs.length===1?'קובץ אחד':fs.length+' קבצים'}${age>20?` · <b class="neg">${age} ימים בלי עדכון</b>`:''}</div></div>`;
+    return `<div class="card kpi" data-srck="${k}" title="לחצו לפירוט הקבצים והנתונים"><div class="lab">${lab}</div><div class="val" style="font-size:22px">עד ${dmy(to)}.${to.slice(2,4)}</div><div class="note">מ-${dmy(from)}.${from.slice(2,4)} · ${fs.length===1?'קובץ אחד':fs.length+' קבצים'}${age>20?` · <b class="neg">${age} ימים בלי עדכון</b>`:''}</div></div>`;
   }).join('');
+  // click a source tile: the files of that kind, then the data they produced
+  const filesHtml = fs => '<h3 style="font-size:16px;margin:4px 0 6px">הקבצים</h3><table style="margin-bottom:16px"><thead><tr><th>קובץ</th><th class="amt">שורות</th><th>תקופה</th></tr></thead><tbody>'+
+    fs.map(f=>`<tr><td class="small" style="word-break:break-all">${esc(f.file)}${f.detail?`<div class="small">${esc(f.detail)}</div>`:''}</td><td class="amt">${f.rows}</td><td class="small">${per(f.period)}</td></tr>`).join('')+'</tbody></table>';
+  const srcDrill = {
+    bank: fs => ({sub:'תנועות העו״ש. חיובי כרטיסי האשראי בבנק מוחלפים בפירוט מהכרטיסים, לכן הם לא מופיעים כאן.', html:filesHtml(fs)+'<h3 style="font-size:16px;margin:4px 0 6px">התנועות</h3>', rows:L.filter(t=>t.src==='bank'), filter:{src:'bank'}}),
+    card: fs => ({sub:'עסקאות מקס (ייצוא Excel) וישראכרט (דפי פירוט PDF), לפי מועד החיוב.', html:filesHtml(fs)+'<h3 style="font-size:16px;margin:4px 0 6px">העסקאות</h3>', rows:L.filter(t=>t.src==='card'), filter:{src:'card'}}),
+    bit: fs => ({sub:'bit מוצג בנפרד ולא נספר בתנועות: תשלומים בכרטיס כבר מופיעים במקס, ותשלומים מהיתרה לא עוברים בבנק.',
+      html:filesHtml(fs)+'<h3 style="font-size:16px;margin:4px 0 6px">ההעברות</h3><table><thead><tr><th>תאריך</th><th>תיאור</th><th>מי</th><th class="amt">סכום</th></tr></thead><tbody>'+
+        DATA.bit.slice().reverse().map(b=>`<tr><td class="small">${dmy(b.d)}</td><td>${esc(b.desc)}<div class="small">${esc(b.pay)}</div></td><td class="small">${esc(b.who)}</td><td class="amt ${b.dir==='in'?'p':''}">${b.dir==='in'?'+':'−'}${ils(b.a)}</td></tr>`).join('')+'</tbody></table>'}),
+    slip: fs => ({sub:'תלושי הפנסיה. ה״משכורת״ שנכנסת לבנק בסוף החודש היא ״נטו לתשלום״.',
+      html:filesHtml(fs)+'<h3 style="font-size:16px;margin:4px 0 6px">התלושים</h3><table><thead><tr><th>חודש</th><th class="amt">ברוטו</th><th class="amt">נטו לתשלום</th><th>תוספות</th></tr></thead><tbody>'+
+        DATA.slips.map(x=>`<tr><td>${mLabel(x.month)}</td><td class="amt small">${ils(x.gross||0)}</td><td class="amt">${ils(x.net)}</td><td class="small">${x.extras.map(e=>esc(e[0])).join(', ')}</td></tr>`).join('')+'</tbody></table>'}),
+  };
+  $('#srcKpis').querySelectorAll('[data-srck]').forEach(el=>el.onclick=()=>{
+    const k=el.dataset.srck, fs=S.filter(f=>f.kind===k), lab=kinds.find(x=>x[0]===k)[1], spec=srcDrill[k](fs);
+    openDrill({title:`מקור: ${lab}`, total:null, ...spec});
+  });
   const order={bank:1,card:2,bit:3,slip:4,unknown:5,error:6};
   $('#srcFiles').innerHTML='<thead><tr><th>סוג</th><th>קובץ</th><th class="amt">שורות</th><th>תקופה</th><th class="hide-sm">פרטים</th></tr></thead><tbody>'+
     S.slice().sort((a,b)=>(order[a.kind]||9)-(order[b.kind]||9)||(a.period?a.period[0]:'').localeCompare(b.period?b.period[0]:'')).map(f=>
@@ -885,7 +902,7 @@ drawCredit();
 drawMonth(); drawTx(); showTab();
 };
 </script>
-<script type="module" src="app.js?v=20"></script>
+<script type="module" src="app.js?v=21"></script>
 <script>
 // If the app module fails to load (old cached files, blocked script), say so instead of hanging on "טוען…".
 setTimeout(() => {
