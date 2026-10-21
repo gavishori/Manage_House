@@ -669,10 +669,10 @@ $('#dlBtn').onclick=()=>{const a=document.createElement('a'); a.href=URL.createO
 [...new Set(L.map(t=>t.cat))].sort().forEach(c=>{const o=document.createElement('option'); o.textContent=c; $('#txC').appendChild(o);});
 function drawTx(){
   const m=$('#txM').value, c=$('#txC').value, s=$('#txS').value, q=$('#txQ').value.trim();
-  const rows=L.filter(t=>(!m||t.d.startsWith(m))&&(!c||t.cat===c)&&(!s||t.src===s)&&(!q||t.desc.includes(q)||t.cat.includes(q)||(t.note||'').includes(q)||(t.card||'')===q)).slice().reverse();
+  const rows=L.filter(t=>(!m||t.d.startsWith(m))&&(!c||t.cat===c)&&(!s||t.src===s)&&(!q||t.desc.includes(q)||t.cat.includes(q)||(t.note||'').includes(q)||(t.card||'')===q)).sort(byDateDesc);
   $('#txSum').textContent=`${rows.length} תנועות · נטו ${ils(sumBy(rows,t=>t.amt))}`;
-  $('#txTbl').innerHTML='<thead><tr><th>תאריך</th><th>תיאור</th><th class="hide-sm">קטגוריה</th><th class="amt">סכום</th></tr></thead><tbody>'+
-    rows.slice(0,800).map(t=>`<tr><td class="small">${dmy(t.d)}</td><td>${esc(t.desc)}${t.src==='card'?` <span class="small">· ${t.card}${t.note?' · '+esc(t.note):''}</span>`:''}<div class="small" style="display:none"></div></td><td class="small hide-sm">${esc(t.cat)}</td><td class="amt ${t.amt>0?'p':''}">${t.amt>0?'+':''}${ils(t.amt)}</td></tr>`).join('')+'</tbody>';
+  $('#txTbl').innerHTML='<thead><tr><th>תאריך עסקה</th><th>תיאור</th><th class="hide-sm">קטגוריה</th><th class="amt">סכום</th></tr></thead><tbody>'+
+    rows.slice(0,800).map(t=>`<tr>${dateCell(t)}<td>${esc(t.desc)}${t.src==='card'?` <span class="small">· ${t.card}${t.note?' · '+esc(t.note):''}</span>`:''}<div class="small" style="display:none"></div></td><td class="small hide-sm">${esc(t.cat)}</td><td class="amt ${t.amt>0?'p':''}">${t.amt>0?'+':''}${ils(t.amt)}</td></tr>`).join('')+'</tbody>';
 }
 ['#txM','#txC','#txS'].forEach(s=>$(s).onchange=drawTx); $('#txQ').oninput=drawTx;
 $('#bitTbl').innerHTML='<thead><tr><th>תאריך</th><th>תיאור</th><th>מי</th><th class="amt">סכום</th></tr></thead><tbody>'+
@@ -680,8 +680,10 @@ $('#bitTbl').innerHTML='<thead><tr><th>תאריך</th><th>תיאור</th><th>מ�
 
 // ---------- drill-down: every number opens the transactions behind it
 let drillFilter=null;
-const txRowsHtml = rows => '<table><thead><tr><th>תאריך</th><th>תיאור</th><th class="hide-sm">קטגוריה</th><th class="amt">סכום</th></tr></thead><tbody>'+
-  rows.map(t=>`<tr><td class="small">${dmy(t.d)}</td><td>${esc(t.desc)}${t.src==='card'?` <span class="small">· כרטיס ${t.card}${t.note?' · '+esc(t.note):''}</span>`:' <span class="small">· בנק</span>'}</td><td class="small hide-sm">${esc(t.cat)}</td><td class="amt ${t.amt>0?'p':''}">${t.amt>0?'+':''}${ils(t.amt)}</td></tr>`).join('')+'</tbody></table>';
+const dateCell = t => `<td class="small" style="white-space:nowrap">${dmy(t.td||t.d)}${t.td&&t.td!==t.d?`<div class="small" style="opacity:.75">חיוב ${dmy(t.d)}</div>`:''}</td>`;
+const byDateDesc = (a,b) => (b.td||b.d).localeCompare(a.td||a.d) || b.d.localeCompare(a.d);
+const txRowsHtml = rows => '<table><thead><tr><th>תאריך עסקה</th><th>תיאור</th><th class="hide-sm">קטגוריה</th><th class="amt">סכום</th></tr></thead><tbody>'+
+  rows.map(t=>`<tr>${dateCell(t)}<td>${esc(t.desc)}${t.src==='card'?` <span class="small">· כרטיס ${t.card}${t.note?' · '+esc(t.note):''}</span>`:' <span class="small">· בנק</span>'}</td><td class="small hide-sm">${esc(t.cat)}</td><td class="amt ${t.amt>0?'p':''}">${t.amt>0?'+':''}${ils(t.amt)}</td></tr>`).join('')+'</tbody></table>';
 function catSummary(rows){
   const g={}; rows.forEach(t=>g[t.cat]=(g[t.cat]||0)+t.amt);
   const list=Object.entries(g).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]));
@@ -694,7 +696,7 @@ function openDrill({title, sub='', total=null, rows=null, html='', filter=null})
   $('#drTot').textContent = total==null ? '' : ils(total);
   $('#drTot').className = 'tot '+(total<0?'neg':'');
   let body=html;
-  if(rows){ const sorted=rows.slice().sort((a,b)=>b.d.localeCompare(a.d)); body += rows.length ? catSummary(rows)+txRowsHtml(sorted) : '<p class="small">אין תנועות.</p>'; }
+  if(rows){ const sorted=rows.slice().sort(byDateDesc); body += rows.length ? catSummary(rows)+txRowsHtml(sorted) : '<p class="small">אין תנועות.</p>'; }
   $('#drB').innerHTML=body;
   drillFilter=filter; $('#drOpen').hidden=!filter;
   $('#drB').querySelectorAll('tr[data-cat]').forEach(tr=>tr.onclick=()=>{
@@ -902,7 +904,7 @@ drawCredit();
 drawMonth(); drawTx(); showTab();
 };
 </script>
-<script type="module" src="app.js?v=23"></script>
+<script type="module" src="app.js?v=24"></script>
 <script>
 // If the app module fails to load (old cached files, blocked script), say so instead of hanging on "טוען…".
 setTimeout(() => {
