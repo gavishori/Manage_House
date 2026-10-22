@@ -10,11 +10,18 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Google accounts come with a verified email. Password accounts are created by the owner in the
+    // Firebase console (self sign-up is turned off), so they are trusted without verification.
     function signedIn() {
-      return request.auth != null && request.auth.token.email_verified == true;
+      return request.auth != null
+          && (request.auth.token.email_verified == true
+              || request.auth.token.firebase.sign_in_provider == 'password');
     }
+    // The owner must sign in with Google, never with a password account.
     function isOwner() {
-      return signedIn() && request.auth.token.email == 'gavishori@gmail.com';
+      return request.auth != null && request.auth.token.email_verified == true
+          && request.auth.token.firebase.sign_in_provider == 'google.com'
+          && request.auth.token.email == 'gavishori@gmail.com';
     }
     function allowed() {
       return isOwner()

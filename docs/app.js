@@ -2,13 +2,14 @@
 // The data itself lives only in Firestore (finance/data) and is readable just
 // by the accounts allowed in firestore.rules; this file holds no personal data.
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut }
+import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult,
+  signInWithEmailAndPassword, sendPasswordResetEmail, signOut }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, serverTimestamp, Timestamp, Bytes }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 // Bump ?v= on every change: GitHub Pages caches files for ~10 minutes, and an old
 // cached firebase-config.js from the previous site broke the module import.
-import { firebaseConfig, ownerEmail } from "./firebase-config.js?v=24";
+import { firebaseConfig, ownerEmail } from "./firebase-config.js?v=25";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -21,12 +22,64 @@ const gate = (msg, { signIn = false, upload = false } = {}) => {
   $("#app").hidden = true;
   $("#gate").hidden = false;
   $("#gateMsg").textContent = msg;
-  $("#signIn").hidden = !signIn;
+  $("#signInBox").hidden = !signIn;
   $("#uploadFirst").hidden = !upload;
 };
 
-$("#signIn").onclick = () => signInWithPopup(auth, new GoogleAuthProvider())
-  .catch(e => gate("ההתחברות נכשלה: " + (e.code || e.message), { signIn: true }));
+// ---- sign-in: Google, or email + password for users the owner created in the
+// Firebase console (self sign-up is turned off there).
+const AUTH_ERRORS = {
+  "auth/popup-closed-by-user": "חלון הכניסה נסגר לפני שהכניסה הסתיימה. נסו שוב.",
+  "auth/cancelled-popup-request": "חלון הכניסה נסגר לפני שהכניסה הסתיימה. נסו שוב.",
+  "auth/network-request-failed": "אין חיבור לאינטרנט. בדקו את החיבור ונסו שוב.",
+  "auth/unauthorized-domain": "האתר לא מורשה לכניסה עם Google. פנו למנהל האתר.",
+  "auth/web-storage-unsupported": "הדפדפן חוסם את הכניסה. פתחו את הקישור בכרום או בספארי.",
+  "auth/operation-not-supported-in-this-environment": "הדפדפן הזה לא תומך בכניסה עם Google. פתחו את הקישור בכרום או בספארי.",
+  "auth/invalid-credential": "המייל או הסיסמה לא נכונים.",
+  "auth/wrong-password": "המייל או הסיסמה לא נכונים.",
+  "auth/user-not-found": "אין משתמש עם המייל הזה. בקשו ממנהל האתר ליצור לכם משתמש.",
+  "auth/invalid-email": "כתובת המייל לא תקינה.",
+  "auth/too-many-requests": "יותר מדי ניסיונות. נסו שוב בעוד כמה דקות.",
+  "auth/operation-not-allowed": "הכניסה עם מייל וסיסמה עוד לא הופעלה. פנו למנהל האתר.",
+};
+const authError = e => AUTH_ERRORS[e.code] || `הכניסה נכשלה (${e.code || e.message}). נסו לפתוח את הקישור בכרום או בספארי.`;
+const loginErr = msg => { $("#loginErr").textContent = msg; };
+
+$("#signIn").onclick = async () => {
+  loginErr("");
+  try { await signInWithPopup(auth, new GoogleAuthProvider()); }
+  catch (e) {
+    // Phones often block the popup: go to Google's page and come back instead.
+    if (e.code === "auth/popup-blocked") return signInWithRedirect(auth, new GoogleAuthProvider());
+    loginErr(authError(e));
+  }
+};
+getRedirectResult(auth).catch(e => loginErr(authError(e)));
+$("#emailForm").onsubmit = async ev => {
+  ev.preventDefault();
+  loginErr("");
+  try {
+    await signInWithEmailAndPassword(auth, $("#emailIn").value.trim(), $("#emailPw").value);
+    $("#emailPw").value = "";
+  } catch (e) { loginErr(authError(e)); }
+};
+$("#pwReset").onclick = async () => {
+  const email = $("#emailIn").value.trim();
+  if (!email) return loginErr("כתבו את המייל ואז לחצו שוב על ״שכחתי סיסמה״.");
+  try { await sendPasswordResetEmail(auth, email); loginErr("נשלח מייל לאיפוס הסיסמה."); }
+  catch (e) { loginErr(authError(e)); }
+};
+// Google refuses to sign in inside apps' built-in browsers (WhatsApp, Facebook, Instagram...).
+if (/FBAN|FBAV|Instagram|Line\/|WhatsApp|; wv\)|WebView/i.test(navigator.userAgent)) {
+  $("#inAppNote").hidden = false;
+  $("#inAppChrome").hidden = !/Android/i.test(navigator.userAgent);
+  $("#inAppChrome").href = `intent://${location.host}${location.pathname}#Intent;scheme=https;package=com.android.chrome;end`;
+  $("#inAppCopy").onclick = async () => {
+    const url = location.origin + location.pathname;
+    try { await navigator.clipboard.writeText(url); loginErr("הקישור הועתק. הדביקו אותו בכרום או בספארי."); }
+    catch { prompt("העתיקו את הקישור:", url); }
+  };
+}
 $("#signOut").onclick = () => signOut(auth);
 
 // ---- budgets & answers sync (debounced, merged into finance/state)
