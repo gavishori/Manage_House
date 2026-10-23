@@ -216,6 +216,10 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 .login-pw input{padding:10px 14px}
 .login-pw input:placeholder-shown{direction:rtl}
 .login-pw button.pri{width:100%;padding:10px}
+.pw-wrap{position:relative;width:100%}
+.pw-wrap input{width:100%;padding-left:44px !important}
+.pw-eye{position:absolute;left:4px;top:50%;transform:translateY(-50%);border:0 !important;background:transparent !important;padding:6px 8px;font-size:18px;line-height:1;cursor:pointer}
+.pw-eye:hover{background:rgba(0,0,0,.06) !important}
 .linklike{color:var(--muted);text-decoration:none;font-weight:500}
 .linklike:hover{color:#fff;background:none}
 #loginErr{color:var(--neg)}
@@ -248,7 +252,10 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
     <form id="emailForm" class="login-pw">
       <div class="or">או עם מייל וסיסמה</div>
       <input type="email" id="emailIn" placeholder="מייל" autocomplete="username" dir="ltr" required>
-      <input type="password" id="emailPw" placeholder="סיסמה" autocomplete="current-password" dir="ltr" required>
+      <div class="pw-wrap">
+        <input type="password" id="emailPw" placeholder="סיסמה" autocomplete="current-password" dir="ltr" required>
+        <button type="button" id="pwEye" class="pw-eye" aria-label="הצגת הסיסמה" title="הצגת הסיסמה">👁️</button>
+      </div>
       <button class="pri" type="submit">כניסה</button>
       <button type="button" class="linklike small" id="pwReset">שכחתי סיסמה</button>
     </form>
@@ -1022,7 +1029,7 @@ drawCredit();
 drawMonth(); drawTx(); showTab();
 };
 </script>
-<script type="module" src="app.js?v=26"></script>
+<script type="module" src="app.js?v=27"></script>
 <script>
 // If the app module fails to load (old cached files, blocked script), say so instead of hanging on "טוען…".
 setTimeout(() => {

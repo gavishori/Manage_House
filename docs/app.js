@@ -9,7 +9,7 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, ge
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 // Bump ?v= on every change: GitHub Pages caches files for ~10 minutes, and an old
 // cached firebase-config.js from the previous site broke the module import.
-import { firebaseConfig, ownerEmail } from "./firebase-config.js?v=26";
+import { firebaseConfig, ownerEmail } from "./firebase-config.js?v=27";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -55,6 +55,13 @@ $("#signIn").onclick = async () => {
   }
 };
 getRedirectResult(auth).catch(e => loginErr(authError(e)));
+// The eye next to the password shows or hides what was typed.
+$("#pwEye").onclick = () => {
+  const show = $("#emailPw").type === "password";
+  $("#emailPw").type = show ? "text" : "password";
+  $("#pwEye").textContent = show ? "🙈" : "👁️";
+  $("#pwEye").setAttribute("aria-label", show ? "הסתרת הסיסמה" : "הצגת הסיסמה");
+};
 $("#emailForm").onsubmit = async ev => {
   ev.preventDefault();
   loginErr("");
@@ -206,8 +213,17 @@ $("#shareList").onclick = async e => {
 };
 
 const shareId = new URLSearchParams(location.search).get("s");
+// Set when an account is refused, so the message survives the sign-out that follows.
+let refused = "";
 if (!shareId) onAuthStateChanged(auth, async user => {
-  if (!user) return gate("כדי לראות את הנתונים צריך להתחבר.", { signIn: true });
+  if (!user) {
+    $("#gateWho").textContent = "";
+    $("#userEmail").textContent = "";
+    gate("כדי לראות את הנתונים צריך להתחבר.", { signIn: true });
+    loginErr(refused);
+    refused = "";
+    return;
+  }
   $("#gateWho").textContent = "מחובר כ-" + user.email;
   $("#userEmail").textContent = user.email;
   $("#shareBtn").hidden = user.email !== ownerEmail;
@@ -223,7 +239,11 @@ if (!shareId) onAuthStateChanged(auth, async user => {
     if (canRemember && !(await loadHandle())) $("#refreshBtn").title = "כדי שרענון ימשוך את data.json אוטומטית, בחרו אותו פעם אחת דרך ״עדכון נתונים״";
   } catch (e) {
     if (e.code === "permission-denied") {
-      gate(`לחשבון ${user.email} אין הרשאה לנתונים האלה.`, { signIn: true });
+      // The owner's account only works through Google (see firestore.rules).
+      const viaPassword = user.providerData.every(p => p.providerId === "password");
+      refused = user.email === ownerEmail && viaPassword
+        ? "החשבון של מנהל האתר נכנס רק עם Google. לחצו על ״כניסה עם Google״."
+        : `לחשבון ${user.email} אין הרשאה לנתונים האלה. בקשו ממנהל האתר להוסיף אותו בשיתוף.`;
       signOut(auth);
     } else {
       gate("שגיאה בטעינה: " + (e.code || e.message));
