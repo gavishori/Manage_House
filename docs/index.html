@@ -891,7 +891,8 @@ const CARDS_L = L.filter(t=>t.src==='card');
 const isIsr = t => t.issuer==='isracard' || (t.src==='bank' && /ישראכרט/.test(t.desc));
 const ISRA_L = L.filter(isIsr);           // itemized statements, or the bank's monthly total when missing
 const ISRA_BANK = ISRA_L.filter(t=>t.src==='bank');
-const cardLabel = n => (C.cards && C.cards[n]) || (n==='isra' ? 'ישראכרט' : 'כרטיס ' + n);
+// Cards are shown by their four digits only, even if older data has longer names.
+const cardLabel = n => { const l = (C.cards && C.cards[n]) || n; return (l.match(/\d{4}/) || [n==='isra' ? 'ישראכרט' : l])[0]; };
 $('#cc-il').textContent = cardLabel('isra') + ' בחודש';
 const cardIds = [...new Set(CARDS_L.map(t=>t.card))].sort((a,b)=>sumBy(CARDS_L.filter(t=>t.card===a),t=>t.amt)-sumBy(CARDS_L.filter(t=>t.card===b),t=>t.amt));
 const ccMonths = [...new Set(CARDS_L.map(t=>t.d.slice(0,7)).concat(ISRA_L.map(t=>t.d.slice(0,7))))].sort();
