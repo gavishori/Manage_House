@@ -117,6 +117,14 @@ dialog#drill::backdrop{background:rgba(0,0,0,.35)}
 [data-drill]:hover,[data-cc]:hover,[data-srck]:hover{border-color:var(--accent)}
 .kpi[data-drill] .lab::after,.kpi[data-cc] .lab::after,.kpi[data-srck] .lab::after{content:" ›";color:var(--accent);font-weight:800}
 #fcIn tbody tr,#fcOut tbody tr{cursor:pointer} #fcIn tbody tr:hover td,#fcOut tbody tr:hover td{background:var(--chip)}
+/* forecast: incoming in green, outgoing in orange, each table only as tall as its rows */
+#fcIn,#fcOut{align-self:start;border-radius:12px;overflow:hidden}
+#fcIn{background:rgba(127,224,168,.10);box-shadow:inset 0 0 0 1px rgba(127,224,168,.35)}
+#fcOut{background:rgba(255,178,122,.10);box-shadow:inset 0 0 0 1px rgba(255,178,122,.35)}
+#fcIn thead th{background:#2f6f5c;color:#d9ffe9;font-weight:700}
+#fcOut thead th{background:#7a4a3a;color:#ffe6d6;font-weight:700}
+#fcIn td.amt{color:var(--pos)} #fcOut tbody td.amt{color:var(--out)}
+#fcIn tbody tr:hover td{background:rgba(127,224,168,.16)} #fcOut tbody tr:hover td{background:rgba(255,178,122,.16)}
 @media (max-width:560px){
   body{font-size:16px} header h1{font-size:25px}
   .bars .row{grid-template-columns:110px 1fr 78px;font-size:14px}
