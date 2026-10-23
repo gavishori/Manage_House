@@ -10,29 +10,35 @@
 <style>
 :root{
   color-scheme:light;
-  --bg:#f6f5f2; --card:#fcfcfb; --line:#e4e2dc; --grid:#ecebe6;
-  --ink:#0b0b0b; --ink2:#52514e; --muted:#85837d;
-  --in:#2a78d6; --out:#eb6834; --neg:#e34948; --negfill:rgba(227,73,72,.12); --pos:#008300;
-  --accent:#2a78d6; --chip:#eeedea; --warnbg:#fff4e0; --warnink:#7a4b00; --okbg:#e7f4ea; --overbg:#fdecec;
-  --shadow:0 1px 2px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.04);
+  --bg:#f4f2ed; --card:#ffffff; --line:#e8e4db; --grid:#efece5;
+  --ink:#1c1a17; --ink2:#55524b; --muted:#8a867c;
+  --in:#3b7ddd; --out:#ec7a45; --neg:#d94848; --negfill:rgba(217,72,72,.12); --pos:#1f8a4c;
+  --accent:#4a63d8; --accent2:#7b5cd6; --accentsoft:#eef0fc; --chip:#f0ede6; --warnbg:#fff5e3; --warnink:#7a4b00; --okbg:#e6f4eb; --overbg:#fdeded;
+  --shadow:0 1px 2px rgba(28,26,23,.04),0 8px 24px -8px rgba(28,26,23,.10);
+  --shadow2:0 2px 4px rgba(28,26,23,.05),0 16px 40px -12px rgba(28,26,23,.18);
+  --glow1:rgba(74,99,216,.10); --glow2:rgba(236,122,69,.08);
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
     color-scheme:dark;
-    --bg:#121211; --card:#1a1a19; --line:#2c2c2a; --grid:#262624;
-    --ink:#f0efec; --ink2:#c3c2b7; --muted:#8e8d86;
-    --in:#3987e5; --out:#d95926; --neg:#e66767; --negfill:rgba(230,103,103,.16); --pos:#2fa52f;
-    --accent:#3987e5; --chip:#252523; --warnbg:#2e2412; --warnink:#f0c46b; --okbg:#18281b; --overbg:#341a1a;
-    --shadow:none;
+    --bg:#121315; --card:#1b1c1f; --line:#2b2d31; --grid:#25272b;
+    --ink:#eeece7; --ink2:#c2bfb6; --muted:#8d8a82;
+    --in:#5a93ea; --out:#e8834f; --neg:#ec6b6b; --negfill:rgba(236,107,107,.16); --pos:#3cb371;
+    --accent:#7c8ff0; --accent2:#a48af0; --accentsoft:#23263a; --chip:#25262a; --warnbg:#2d2413; --warnink:#f0c46b; --okbg:#17281e; --overbg:#341b1b;
+    --shadow:0 1px 2px rgba(0,0,0,.3);
+    --shadow2:0 16px 40px -12px rgba(0,0,0,.6);
+    --glow1:rgba(124,143,240,.10); --glow2:rgba(232,131,79,.06);
   }
 }
 :root[data-theme="dark"]{
   color-scheme:dark;
-  --bg:#121211; --card:#1a1a19; --line:#2c2c2a; --grid:#262624;
-  --ink:#f0efec; --ink2:#c3c2b7; --muted:#8e8d86;
-  --in:#3987e5; --out:#d95926; --neg:#e66767; --negfill:rgba(230,103,103,.16); --pos:#2fa52f;
-  --accent:#3987e5; --chip:#252523; --warnbg:#2e2412; --warnink:#f0c46b; --okbg:#18281b; --overbg:#341a1a;
-  --shadow:none;
+  --bg:#121315; --card:#1b1c1f; --line:#2b2d31; --grid:#25272b;
+  --ink:#eeece7; --ink2:#c2bfb6; --muted:#8d8a82;
+  --in:#5a93ea; --out:#e8834f; --neg:#ec6b6b; --negfill:rgba(236,107,107,.16); --pos:#3cb371;
+  --accent:#7c8ff0; --accent2:#a48af0; --accentsoft:#23263a; --chip:#25262a; --warnbg:#2d2413; --warnink:#f0c46b; --okbg:#17281e; --overbg:#341b1b;
+  --shadow:0 1px 2px rgba(0,0,0,.3);
+  --shadow2:0 16px 40px -12px rgba(0,0,0,.6);
+  --glow1:rgba(124,143,240,.10); --glow2:rgba(232,131,79,.06);
 }
 *{box-sizing:border-box}
 [hidden]{display:none !important}  /* classes like .switch set display and would otherwise override the hidden attribute */
@@ -142,17 +148,123 @@ dialog#drill::backdrop{background:rgba(0,0,0,.35)}
   #budTbl{font-size:14px} #budTbl td,#budTbl th{padding:6px 4px}
   input.bud{width:64px;padding:3px 5px;font-size:14px}
 }
+/* ---------- softer look ---------- */
+body{background:
+  radial-gradient(900px 500px at 100% -10%,var(--glow1),transparent 60%),
+  radial-gradient(700px 420px at -10% 0%,var(--glow2),transparent 60%),
+  var(--bg);background-attachment:fixed;-webkit-font-smoothing:antialiased}
+::selection{background:var(--accentsoft)}
+a{color:var(--accent)}
+.card{border-radius:18px;border-color:var(--line);box-shadow:var(--shadow);transition:border-color .2s,box-shadow .2s,transform .2s}
+h2{letter-spacing:-.2px}
+h2::after{content:"";display:block;width:36px;height:4px;border-radius:4px;margin-top:6px;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+[dir=rtl] h2::after{background:linear-gradient(270deg,var(--accent),var(--accent2))}
+
+/* header: title + a quiet button group */
+header{align-items:center;padding:4px 0 2px}
+header h1{background:linear-gradient(270deg,var(--ink) 55%,var(--accent));-webkit-background-clip:text;background-clip:text;color:transparent}
+header p{color:var(--muted)}
+header > div:last-child{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:4px;box-shadow:var(--shadow);gap:2px !important}
+header button.sm{border:0;background:transparent;color:var(--ink2);border-radius:10px;font-weight:600}
+header button.sm:hover{background:var(--chip);color:var(--ink)}
+
+/* tabs: one scrollable, frosted strip */
+nav.tabs{background:color-mix(in srgb,var(--bg) 82%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+  flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--line);padding:10px 2px;gap:4px}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs a{white-space:nowrap;background:transparent;font-weight:600;padding:7px 14px;transition:background .15s,color .15s}
+nav.tabs a:hover{background:var(--chip);color:var(--ink)}
+nav.tabs a.on{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;box-shadow:0 4px 14px -4px color-mix(in srgb,var(--accent) 60%,transparent)}
+
+/* KPI tiles */
+.kpis{gap:14px}
+.kpi{position:relative;overflow:hidden;padding:18px 20px 16px}
+.kpi::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;background:linear-gradient(90deg,var(--accent2),var(--accent));opacity:.55}
+.kpi .lab{font-weight:600}
+.kpi .val{letter-spacing:-.5px}
+[data-drill]:hover,[data-cc]:hover,[data-srck]:hover{transform:translateY(-2px);box-shadow:var(--shadow2)}
+
+/* notices */
+.alert{border:1px solid color-mix(in srgb,var(--warnink) 18%,transparent);border-radius:18px;font-weight:500;line-height:1.65}
+
+/* controls */
+button{border-radius:12px;transition:background .15s,border-color .15s,box-shadow .15s,transform .1s}
+button:hover{border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}
+button:active{transform:translateY(1px)}
+button.pri{background:linear-gradient(135deg,var(--accent),var(--accent2));border:0;box-shadow:0 6px 18px -6px color-mix(in srgb,var(--accent) 70%,transparent)}
+button.pri:hover{filter:brightness(1.06)}
+input,select,textarea{transition:border-color .15s,box-shadow .15s}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent) !important;box-shadow:0 0 0 4px var(--accentsoft)}
+input[type=search],input[type=number],select{border-radius:12px}
+
+/* tables */
+.tblwrap{border:1px solid var(--line);border-radius:14px}
+th{font-size:14px;font-weight:700;color:var(--muted);border-bottom:1px solid var(--line)}
+td{border-bottom-color:var(--grid)}
+tbody tr{transition:background .12s}
+tbody tr:hover td{background:color-mix(in srgb,var(--accentsoft) 60%,transparent)}
+.row-sec td{background:var(--chip)}
+
+/* bars and meters */
+.bars .bar{border-radius:99px;height:12px}
+.bars .bar>span{border-radius:99px;background:linear-gradient(270deg,var(--out),color-mix(in srgb,var(--out) 70%,#f5b041))}
+.meter span{background:linear-gradient(270deg,var(--in),var(--accent2))}
+
+/* insights & questions */
+#insSummary{border:0;background:linear-gradient(135deg,var(--accentsoft),var(--card) 70%);box-shadow:var(--shadow2);position:relative}
+#insSummary::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1.5px;background:linear-gradient(135deg,var(--accent),var(--accent2),transparent 70%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+.ins .n{background:linear-gradient(135deg,var(--accentsoft),var(--chip));color:var(--accent);border-radius:14px}
+.pill{font-weight:600}
+.q textarea{border-radius:12px}
+.prog{height:10px}
+.prog span{background:linear-gradient(270deg,var(--pos),#5cc98a)}
+
+/* dialogs */
+dialog#drill,dialog#shareDlg{border:0;border-radius:22px;box-shadow:var(--shadow2),0 0 0 1px var(--line)}
+dialog[open]{animation:pop .18s ease-out}
+dialog::backdrop{background:rgba(20,18,15,.38) !important;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+@keyframes pop{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+
+/* sign-in */
+#gate{margin:9vh auto !important;padding:34px 30px 26px;border:0;border-radius:26px;box-shadow:var(--shadow2),0 0 0 1px var(--line)}
+#gate .logo{width:64px;height:64px;margin:0 auto 14px;border-radius:20px;display:grid;place-items:center;font-size:30px;font-weight:800;color:#fff;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 10px 26px -8px color-mix(in srgb,var(--accent) 70%,transparent)}
+#gate h1{font-size:26px !important;letter-spacing:-.3px}
+#gate #signIn{width:100%;max-width:300px;display:inline-flex;align-items:center;justify-content:center;gap:10px;padding:12px 16px;
+  background:var(--card);color:var(--ink);border:1px solid var(--line);box-shadow:var(--shadow)}
+#gate #signIn:hover{border-color:var(--accent);filter:none}
+#gate #signIn svg{width:20px;height:20px}
+.login-pw{border-top:0;padding-top:0;margin-top:16px;max-width:300px}
+.login-pw .or{display:flex;align-items:center;gap:10px;width:100%;color:var(--muted);font-size:14px}
+.login-pw .or::before,.login-pw .or::after{content:"";flex:1;height:1px;background:var(--line)}
+.login-pw input{padding:11px 14px;border-radius:12px;background:var(--bg)}
+.login-pw input:placeholder-shown{direction:rtl}
+.login-pw button.pri{width:100%;padding:11px}
+.linklike{color:var(--muted);text-decoration:none;font-weight:600}
+.linklike:hover{color:var(--accent);background:none}
+#loginErr{color:var(--neg);font-size:15px}
+#loginErr:empty{display:none}
+.inapp-note{background:var(--warnbg);color:var(--warnink);border:0;border-radius:14px;text-align:right}
+#gateWho:empty{display:none}
+
+@media (max-width:560px){
+  #gate{margin:4vh auto !important;padding:28px 18px 22px}
+  header > div:last-child{width:100%;justify-content:space-between}
+  header button.sm{padding:6px 8px;font-size:13px}
+}
 </style>
 </head>
 <body>
 <div class="wrap">
 <div id="gate" class="card" style="max-width:480px;margin:12vh auto;text-align:center">
+  <div class="logo" aria-hidden="true">₪</div>
   <h1 style="margin:0 0 6px;font-size:28px">ניהול הוצאות והכנסות</h1>
   <p class="sub" id="gateMsg">טוען…</p>
   <div id="signInBox" hidden>
-    <button class="pri" id="signIn" type="button">התחברות עם Google</button>
+    <button class="pri" id="signIn" type="button"><svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>כניסה עם Google</button>
     <form id="emailForm" class="login-pw">
-      <p class="small" style="margin:0">או כניסה עם מייל וסיסמה</p>
+      <div class="or">או עם מייל וסיסמה</div>
       <input type="email" id="emailIn" placeholder="מייל" autocomplete="username" dir="ltr" required>
       <input type="password" id="emailPw" placeholder="סיסמה" autocomplete="current-password" dir="ltr" required>
       <button class="pri" type="submit">כניסה</button>
