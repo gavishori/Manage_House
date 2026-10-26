@@ -149,6 +149,8 @@ h2{font-size:1.3rem;font-weight:700}
 .side-nav-title{text-align:center;margin-bottom:10px;padding:0 6px 12px;border-bottom:1px solid var(--line)}
 .side-nav-title h1{font-size:1.15rem;margin:0;font-weight:700;line-height:1.35}
 .side-nav-title p{margin:6px 0 0;font-size:12px;color:var(--muted);line-height:1.45}
+.gsearch{margin:0 0 10px}
+.gsearch input{width:100%;padding:9px 12px;font-size:15px}
 nav.tabs{position:static;display:flex;flex-direction:column;gap:2px;margin:0;padding:0;border:0;background:none}
 nav.tabs a{display:flex;align-items:center;justify-content:flex-start;padding:11px 14px;border-radius:10px;background:transparent;color:var(--muted);font-size:.95rem;font-weight:500}
 nav.tabs a:hover{background:rgba(255,255,255,.12);color:#fff}
@@ -312,6 +314,10 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
   <div class="side-nav-title">
     <h1 id="title"></h1>
     <p id="srcLine"></p>
+  </div>
+  <div class="gsearch">
+    <input type="search" id="gQ" list="gQList" placeholder="🔍 חיפוש: בזק, רמי לוי…" autocomplete="off" aria-label="חיפוש בכל התנועות">
+    <datalist id="gQList"></datalist>
   </div>
   <nav class="tabs" id="tabs" aria-label="תפריט ראשי">
     <a href="#overview">📊 סקירה</a>
@@ -793,14 +799,36 @@ $('#dlBtn').onclick=()=>{const a=document.createElement('a'); a.href=URL.createO
 
 // ---------- transactions
 [...new Set(L.map(t=>t.cat))].sort().forEach(c=>{const o=document.createElement('option'); o.textContent=c; $('#txC').appendChild(o);});
+// Matches description, note or category (any case), or an exact card number.
+const gMatch = q => { q=q.toLowerCase(); return t => [t.desc, t.note||'', t.cat].some(v=>v.toLowerCase().includes(q)) || (t.card||'')===q; };
 function drawTx(){
   const m=$('#txM').value, c=$('#txC').value, s=$('#txS').value, q=$('#txQ').value.trim();
-  const rows=L.filter(t=>(!m||t.d.startsWith(m))&&(!c||t.cat===c)&&(!s||t.src===s)&&(!q||t.desc.includes(q)||t.cat.includes(q)||(t.note||'').includes(q)||(t.card||'')===q)).sort(byDateDesc);
+  const rows=L.filter(t=>(!m||t.d.startsWith(m))&&(!c||t.cat===c)&&(!s||t.src===s)&&(!q||gMatch(q)(t))).sort(byDateDesc);
   $('#txSum').textContent=`${rows.length} תנועות · נטו ${ils(sumBy(rows,t=>t.amt))}`;
   $('#txTbl').innerHTML='<thead><tr><th>תאריך עסקה</th><th>תיאור</th><th class="hide-sm">קטגוריה</th><th class="amt">סכום</th></tr></thead><tbody>'+
     rows.slice(0,800).map(t=>`<tr>${dateCell(t)}<td>${esc(t.desc)}${t.src==='card'?` <span class="small">· ${t.card}${t.note?' · '+esc(t.note):''}</span>`:''}<div class="small" style="display:none"></div></td><td class="small hide-sm">${esc(t.cat)}</td><td class="amt ${t.amt>0?'p':''}">${t.amt>0?'+':''}${ils(t.amt)}</td></tr>`).join('')+'</tbody>';
 }
 ['#txM','#txC','#txS'].forEach(s=>$(s).onchange=drawTx); $('#txQ').oninput=drawTx;
+
+// ---------- search everywhere: type part of a name (בזק, רמי לוי, 1412) and pick from the suggestions
+(() => {
+  const freq={}; L.forEach(t=>{ freq[t.desc]=(freq[t.desc]||0)+1; });
+  const opts=[...new Set(L.map(t=>t.cat))].map(c=>[c,1e6]).concat(Object.entries(freq)).sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
+  $('#gQList').innerHTML=opts.map(o=>`<option value="${esc(o)}"></option>`).join('');
+})();
+function gSearch(){
+  const q=$('#gQ').value.trim(); if(!q) return;
+  const rows=L.filter(gMatch(q));
+  const byM={}; rows.forEach(t=>{ const m=t.d.slice(0,7); byM[m]=(byM[m]||0)+t.amt; });
+  const months=Object.keys(byM).sort().reverse();
+  const html = rows.length ? '<h3 style="margin:4px 0 6px">לפי חודש</h3><table style="margin-bottom:14px"><tbody>'+
+    months.map(m=>`<tr><td>${mLabel(m)}</td><td class="amt">${ils(byM[m])}</td></tr>`).join('')+'</tbody></table>' : '';
+  openDrill({title:`חיפוש: ${q}`, sub:`${rows.length} תנועות${rows.length?` · ממוצע לחודש ${ils(sumBy(rows,t=>t.amt)/Math.max(1,months.length))}`:''}`,
+    total:sumBy(rows,t=>t.amt), rows, html, filter:{q}});
+}
+$('#gQ').onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); gSearch(); } };
+// Picking a suggestion from the list searches right away.
+$('#gQ').oninput=e=>{ if(e.inputType==='insertReplacementText' || !e.inputType) gSearch(); };
 $('#bitTbl').innerHTML='<thead><tr><th>תאריך</th><th>תיאור</th><th>מי</th><th class="amt">סכום</th></tr></thead><tbody>'+
   DATA.bit.slice().reverse().map(b=>`<tr><td class="small">${dmy(b.d)}</td><td>${esc(b.desc)}<div class="small">${esc(b.pay)}</div></td><td class="small">${esc(b.who)}</td><td class="amt ${b.dir==='in'?'p':''}">${b.dir==='in'?'+':'−'}${ils(b.a)}</td></tr>`).join('')+'</tbody>';
 
@@ -834,7 +862,7 @@ function openDrill({title, sub='', total=null, rows=null, html='', filter=null})
 }
 $('#drClose').onclick=()=>$('#drill').close();
 $('#drill').addEventListener('click',e=>{ if(e.target===$('#drill')) $('#drill').close(); });
-$('#drOpen').onclick=()=>{ const f=drillFilter||{}; $('#txM').value=f.m||''; $('#txC').value=f.cat||''; $('#txS').value=f.src||''; $('#txQ').value=''; drawTx(); $('#drill').close(); location.hash='#tx'; };
+$('#drOpen').onclick=()=>{ const f=drillFilter||{}; $('#txM').value=f.m||''; $('#txC').value=f.cat||''; $('#txS').value=f.src||''; $('#txQ').value=f.q||''; drawTx(); $('#drill').close(); location.hash='#tx'; };
 
 const fcSource = c => {
   if(c==='פנסיה'){
