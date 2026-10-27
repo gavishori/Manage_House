@@ -818,6 +818,7 @@ function drawTx(){
 })();
 function gSearch(){
   const q=$('#gQ').value.trim(); if(!q) return;
+  $('#gQ').value=''; $('#gQ').blur();  // ready for the next search
   const rows=L.filter(gMatch(q));
   const byM={}; rows.forEach(t=>{ const m=t.d.slice(0,7); byM[m]=(byM[m]||0)+t.amt; });
   const months=Object.keys(byM).sort().reverse();
