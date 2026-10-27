@@ -3,8 +3,8 @@
 אפליקציית ווב לניהול הכספים של הבית: סקירה ותחזית חודשית, מעקב חודשי מול תקציב, התחייבויות קבועות, תובנות, פנסיה, שאלות פתוחות ופירוט כל התנועות.
 
 **כתובות** (אותה אפליקציה, כניסה עם חשבון Google מורשה בלבד):
-- <https://car-qr-counter.web.app> (Firebase Hosting)
-- <https://gavishori.github.io/Manage_House/> (GitHub Pages, מתעדכן אוטומטית בכל push)
+- <https://car-qr-counter.firebaseapp.com> (Firebase Hosting, הכתובת הראשית)
+- <https://gavishori.github.io/Manage_House/> ו-car-qr-counter.web.app מעבירות אוטומטית לכתובת הראשית, כי כניסה עם Google בנייד עובדת רק באותו דומיין של Firebase Auth
 
 ## איך זה בנוי
 

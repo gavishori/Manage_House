@@ -9,7 +9,7 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, ge
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 // Bump ?v= on every change: GitHub Pages caches files for ~10 minutes, and an old
 // cached firebase-config.js from the previous site broke the module import.
-import { firebaseConfig, ownerEmail } from "./firebase-config.js?v=27";
+import { firebaseConfig, ownerEmail } from "./firebase-config.js?v=28";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -45,8 +45,11 @@ const AUTH_ERRORS = {
 const authError = e => AUTH_ERRORS[e.code] || `הכניסה נכשלה (${e.code || e.message}). נסו לפתוח את הקישור בכרום או בספארי.`;
 const loginErr = msg => { $("#loginErr").textContent = msg; };
 
+// Phones and in-app browsers block or lose the popup, so there we go to Google's page and come back.
+const MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform));
 $("#signIn").onclick = async () => {
   loginErr("");
+  if (MOBILE) return signInWithRedirect(auth, new GoogleAuthProvider());
   try { await signInWithPopup(auth, new GoogleAuthProvider()); }
   catch (e) {
     // Phones often block the popup: go to Google's page and come back instead.

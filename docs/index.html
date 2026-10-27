@@ -4,6 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
+<script>
+// Google sign-in on phones only works when the site is on the same domain as Firebase Auth
+// (browsers block the cross-site storage the redirect needs), so the site has one address.
+(function(){var h=location.hostname;if(h==='gavishori.github.io'||h==='car-qr-counter.web.app')location.replace('https://car-qr-counter.firebaseapp.com/'+location.search+location.hash);})();
+</script>
 <title>ניהול הוצאות והכנסות</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;900&display=swap" rel="stylesheet">
@@ -1060,7 +1065,7 @@ drawCredit();
 drawMonth(); drawTx(); showTab();
 };
 </script>
-<script type="module" src="app.js?v=27"></script>
+<script type="module" src="app.js?v=28"></script>
 <script>
 // If the app module fails to load (old cached files, blocked script), say so instead of hanging on "טוען…".
 setTimeout(() => {
