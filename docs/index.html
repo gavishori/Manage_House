@@ -109,7 +109,7 @@ tr.over td{background:var(--overbg)}
 .foot{margin-top:40px}
 dialog#shareDlg{border:1px solid var(--line);border-radius:14px;background:var(--card);color:var(--ink);padding:20px;width:min(480px,calc(100vw - 32px))}
 dialog#shareDlg::backdrop{background:rgba(0,0,0,.35)}
-body.readonly [data-upload],body.readonly #refreshBtn,body.readonly #shareBtn,body.readonly #signOut,body.readonly #budReset,body.readonly #tabs a[href="#questions"],body.readonly #tabs a[href="#docs"]{display:none}
+body.readonly [data-upload],body.readonly #refreshBtn,body.readonly #shareBtn,body.readonly #signOut,body.readonly #budReset,body.readonly .home-tile[href="#questions"],body.readonly .home-tile[href="#docs"],body.readonly #tabs a[href="#questions"],body.readonly #tabs a[href="#docs"]{display:none}
 body.readonly input.bud{pointer-events:none;border-color:transparent;background:transparent}
 dialog#drill{border:1px solid var(--line);border-radius:14px;background:var(--card);color:var(--ink);padding:0;width:min(760px,calc(100vw - 24px));max-height:calc(100vh - 40px)}
 dialog#drill::backdrop{background:rgba(0,0,0,.35)}
@@ -219,6 +219,18 @@ dialog#drill,dialog#shareDlg{background:var(--solid);color:#fff;border:1px solid
 #drill .dh{background:var(--solid)}
 dialog::backdrop{background:rgba(0,0,0,.5)}
 #toast{background:#fff;color:#1e3c72}
+.home-hero{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px 24px;margin-bottom:6px}
+.home-hero h2{margin:0;font-size:1.7rem}
+.home-hero .sub{margin:2px 0 0}
+.home-hero p:last-child{margin:0;font-size:1.05rem}
+.home-h{margin:24px 0 8px}
+a.home-kpi,a.home-tile{color:inherit;text-decoration:none;transition:border-color .15s,background .15s}
+a.home-kpi:hover,a.home-tile:hover{border-color:var(--accent);background:rgba(255,255,255,.14)}
+.home-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
+.home-tile{display:flex;flex-direction:column;gap:2px;padding:14px 16px}
+.home-ico{font-size:1.6rem;line-height:1.3}
+.home-todo{margin:0;padding-inline-start:20px}
+.home-todo li{margin:6px 0}
 .tip{background:var(--solid);color:#fff;border-color:var(--glass-line)}
 
 /* sign-in card */
@@ -343,10 +355,11 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
     <datalist id="gQList"></datalist>
   </div>
   <nav class="tabs" id="tabs" aria-label="תפריט ראשי">
+    <a href="#home">🏡 דף הבית</a>
     <a href="#overview">📊 סקירה</a>
     <a href="#month">📅 החודש</a>
     <a href="#credit">💳 אשראי</a>
-    <a href="#fixed">🏠 התחייבויות קבועות</a>
+    <a href="#fixed">🧾 התחייבויות קבועות</a>
     <a href="#insights">💡 תובנות</a>
     <a href="#pension">🎖️ פנסיה</a>
     <a href="#invest">📈 השקעות</a>
@@ -368,6 +381,18 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 <div class="alert" id="shareBanner" hidden style="margin:0 0 12px"></div>
 
 <!-- ================= overview ================= -->
+<section class="tab" id="home">
+  <div class="home-hero">
+    <div><h2 id="homeHi"></h2><p class="sub" id="homeDate"></p></div>
+    <p id="homeLine"></p>
+  </div>
+  <div class="kpis" id="homeKpis"></div>
+  <h3 class="home-h">מה הכי חשוב עכשיו</h3>
+  <div class="card" id="homeTodo"></div>
+  <h3 class="home-h">לאן ממשיכים</h3>
+  <div class="home-grid" id="homeGrid"></div>
+</section>
+
 <section class="tab" id="overview">
   <div class="kpis">
     <div class="card kpi" data-drill="k-now" title="לחצו לפירוט"><div class="lab">יתרה בעו״ש</div><div class="val" id="k-now"></div><div class="note" id="k-now2"></div></div>
@@ -611,7 +636,7 @@ $('#foot').textContent = 'הנתונים שמורים ב-Firestore, ורק הח�
 
 // ---------- tabs
 function showTab(){
-  const id=(location.hash||'#overview').slice(1);
+  const id=(location.hash||'#home').slice(1);
   document.querySelectorAll('section.tab').forEach(s=>s.classList.toggle('on', s.id===id));
   document.querySelectorAll('#tabs a').forEach(a=>a.classList.toggle('on', a.getAttribute('href')==='#'+id));
   if(id==='overview') drawCharts();
@@ -1201,6 +1226,35 @@ drawCredit();
   const pri={1:'גבוהה',2:'בינונית',3:'נמוכה'};
   $('#srcMissing').innerHTML=X.length?'<thead><tr><th>מה חסר</th><th>למה זה חשוב</th><th class="hide-sm">איך משיגים</th><th>עדיפות</th></tr></thead><tbody>'+
     X.map(x=>`<tr${x.priority===1?' class="flag"':''}><td><b>${esc(x.name)}</b></td><td>${esc(x.why||'')}</td><td class="small hide-sm">${esc(x.how||'')}</td><td class="small">${pri[x.priority]||''}</td></tr>`).join('')+'</tbody>':'<tbody><tr><td class="small">לא חסר כלום</td></tr></tbody>';
+})();
+
+// ---------- home page
+(function(){
+  const f=forecast($('#bizToggle').checked), gap=f.tout-f.tin, B=DATA.balance, now=B[B.length-1];
+  const h=new Date().getHours();
+  $('#homeHi').textContent=h<5?'לילה טוב':h<12?'בוקר טוב':h<18?'צהריים טובים':'ערב טוב';
+  $('#homeDate').textContent=new Date().toLocaleDateString('he-IL',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  $('#homeLine').innerHTML=gap>0
+    ? `בחודש רגיל נכנסים <b>${ils(f.tin)}</b> ויוצאים <b>${ils(f.tout)}</b>.`
+    : `בחודש רגיל נכנסים <b>${ils(f.tin)}</b> ויוצאים <b>${ils(f.tout)}</b>, ונשארים <b class="pos">${ils(-gap)}</b>.`;
+  const I=C.investments, plans=I?Object.keys(I.people).flatMap(investPlans):[], saved=sumBy(plans,p=>p.balance);
+  const open=C.questions.filter((q,i)=>!isAns(q,i)).length, slip=DATA.slips[DATA.slips.length-1];
+  const tile=(href,lab,val,note,cls='')=>`<a class="card kpi home-kpi" href="#${href}"><div class="lab">${esc(lab)}</div><div class="val ${cls}">${val}</div><div class="note">${esc(note)}</div></a>`;
+  $('#homeKpis').innerHTML=tile('overview',gap>0?'חסר בחודש רגיל':'נשאר בחודש רגיל',ils(Math.abs(gap)),'הכנסות מול הוצאות צפויות',gap>0?'neg':'pos')
+    +tile('overview','יתרה בעו״ש',ils(now[1]),`נכון ל-${dmy(now[0])}`,now[1]<0?'neg':'')
+    +(I?tile('invest','סה״כ חסכונות',ils(saved),`${plans.length} תוכניות`):'')
+    +(slip?tile('pension','תלוש אחרון',ils(slip.net),mLabel(slip.month)):'');
+  const todo=(C.missing_sources||[]).filter(m=>m.priority===1).slice(0,3);
+  $('#homeTodo').innerHTML=(todo.length?'<ul class="home-todo">'+todo.map(m=>`<li><a href="#sources"><b>${esc(m.name)}</b></a><div class="small">${esc(m.why||'')}</div></li>`).join('')+'</ul>':'<p class="small" style="margin:0">אין כרגע משהו דחוף.</p>')
+    +(open?`<p class="small" style="margin:10px 0 0"><a href="#questions">${open} שאלות פתוחות מחכות לתשובה</a></p>`:'');
+  const about={overview:'תחזית, גרפים ומאזן',month:'תקציב מול ביצוע',credit:'כרטיסים ותשלומים',fixed:'מה יורד בכל חודש',
+    insights:`${C.insights.length} תובנות`,pension:'תלושים ומה השתנה',invest:'כל החסכונות',questions:open?`${open} פתוחות`:'הכול נענה',
+    tx:`${L.length} תנועות`,sources:'מאיפה הנתונים',docs:'העלאה וצ׳ק ליסט'};
+  $('#homeGrid').innerHTML=[...document.querySelectorAll('#tabs a')].filter(a=>!a.hidden&&a.getAttribute('href')!=='#home').map(a=>{
+    const k=a.getAttribute('href').slice(1), parts=a.firstChild.textContent.trim().split(' ');
+    const [ico,...name]=parts.length>1?parts:['❓',...parts];  // the questions link is redrawn without its icon
+    return `<a class="card home-tile" href="#${k}"><span class="home-ico">${ico}</span><b>${esc(name.join(' '))}</b><span class="small">${esc(about[k]||'')}</span></a>`;
+  }).join('');
 })();
 
 drawMonth(); drawTx(); showTab();
