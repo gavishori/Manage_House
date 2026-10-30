@@ -567,6 +567,7 @@ a.home-kpi:hover,a.home-tile:hover{border-color:var(--accent);background:rgba(25
   <p class="sub" id="invSub"></p>
   <div class="kpis" id="invKpis"></div>
   <div class="card" style="margin-top:12px"><h3>איפה הכסף</h3><div class="bars" id="invTypes"></div></div>
+  <div class="card" id="invCrypto" style="margin-top:12px" hidden></div>
   <div id="invPeople"></div>
   <div class="card" id="invAgent" style="margin-top:12px"></div>
   <p class="small" id="invFoot"></p>
@@ -905,11 +906,34 @@ function investPlans(key){
   return P.plans.map(p=>{ const k=p.no+'|'+p.company; return k in bal ? {...p, balance:bal[k], updated:true} : p; })
     .concat((o.added||[]).map(a=>({...a, type:a.type||'gemel', company:'', name:'תוכנית חדשה מדוח', deposit:0, added:true})));
 }
+// Crypto is kept as quantities (config.investments.crypto); its value is quantity × today's price.
+// The last price is remembered on this device, and the price from the config is the fallback.
+let cryptoPx=store.get('mh-crypto-px',null);
+function cryptoPlans(key){
+  const X=C.investments?.crypto; if(!X||X.owner!==key) return [];
+  return X.holdings.map(h=>{
+    const price=cryptoPx?.prices?.[h.id]??h.ref_price, at=cryptoPx?.prices?.[h.id]?cryptoPx.at:X.as_of, balance=Math.round(h.qty*price);
+    return {type:'crypto',company:'קריפטו',name:h.sym,no:h.sym,opened:'',status:'',track:'',fee:'',balance,capital:balance,annuity:0,deposit:0,ret12:null,ret60:null,stocks:null,qty:h.qty,price,priceAt:at};
+  });
+}
+const allPlans=key=>investPlans(key).concat(cryptoPlans(key));
+async function loadCryptoPrices(){
+  const X=C.investments?.crypto; if(!X) return;
+  try{
+    const r=await fetch('https://api.coingecko.com/api/v3/simple/price?vs_currencies=ils&ids='+X.holdings.map(h=>h.id).join(','));
+    if(!r.ok) return;
+    const j=await r.json(), prices=Object.fromEntries(X.holdings.filter(h=>j[h.id]?.ils).map(h=>[h.id,j[h.id].ils]));
+    if(!Object.keys(prices).length) return;
+    cryptoPx={prices,at:new Date().toISOString().slice(0,10)};
+    store.set('mh-crypto-px',cryptoPx);
+    drawInvest(); drawHome();
+  }catch(e){ console.warn('crypto prices failed',e); }
+}
 function drawInvest(){
   const I=C.investments;
   const link=document.querySelector('#tabs a[href="#invest"]');
   if(!I){ if(link) link.hidden=true; return; }
-  const keys=Object.keys(I.people), byP=Object.fromEntries(keys.map(k=>[k,investPlans(k)])), all=keys.flatMap(k=>byP[k].map(p=>({...p,who:I.people[k].name,owner:k,key:`${k}|${p.no}|${p.company}`})));
+  const keys=Object.keys(I.people), byP=Object.fromEntries(keys.map(k=>[k,allPlans(k)])), all=keys.flatMap(k=>byP[k].map(p=>({...p,who:I.people[k].name,owner:k,key:`${k}|${p.no}|${p.company}`})));
   const total=sumBy(all,p=>p.balance), cap=sumBy(all,p=>p.capital||0), dep=sumBy(all,p=>p.deposit||0);
   const tile=(id,lab,val,note)=>`<div class="card kpi" data-invk="${esc(id)}" title="לחצו למקור"><div class="lab">${esc(lab)}</div><div class="val">${val}</div><div class="note">${esc(note)}</div></div>`;
   const asOf=keys.map(k=>(STATE.investments||{})[k]?.asOf).filter(Boolean).sort().pop()||I.as_of;
@@ -923,7 +947,7 @@ function drawInvest(){
     const list=rows.filter(p=>p[field]).sort((a,b)=>b[field]-a[field]);
     const newer=[...new Set(list.filter(p=>p.updated||p.added).map(p=>p.who))];
     openDrill({title, total:sumBy(list,p=>p[field]),
-      sub:`מקור: ${esc(I.source)}, נכון ל-${dmy(asOf)}.${asOf.slice(0,4)}.${newer.length?` יתרות שסומנו ״עודכן״ הגיעו מדוח שהועלה בלשונית ״מסמכים״.`:''} לחיצה על תוכנית מציגה את פרטיה.`,
+      sub:`מקור: ${esc(I.source)}, נכון ל-${dmy(asOf)}.${asOf.slice(0,4)}.${list.some(p=>p.type==='crypto')?` קריפטו: הכמות כפול מחיר השוק ב-${esc(I.crypto.price_source)}.`:''}${newer.length?` יתרות שסומנו ״עודכן״ הגיעו מדוח שהועלה בלשונית ״מסמכים״.`:''} לחיצה על תוכנית מציגה את פרטיה.`,
       html:`<table><thead><tr><th>תוכנית</th><th class="hide-sm">של מי</th><th class="amt">${esc(fieldName)}</th></tr></thead><tbody>`+
         list.map(p=>`<tr class="click" data-invp="${esc(p.key)}"><td>${esc(p.company)} · ${esc(p.name)}<div class="small">${esc(I.types[p.type]||'')}${p.no?' · מס׳ '+esc(p.no):''}${p.updated||p.added?' · עודכן':''}</div></td><td class="small hide-sm">${esc(p.who)}</td><td class="amt">${ils(p[field])}</td></tr>`).join('')+'</tbody></table>'});
     $('#drB').querySelectorAll('tr[data-invp]').forEach(tr=>tr.onclick=()=>showPlan(tr.dataset.invp));
@@ -949,14 +973,23 @@ function drawInvest(){
     const [k,no,co]=key.split('|'), p=byP[k].find(x=>x.no===no&&x.company===co);
     const row=(a,b)=>b==null||b===''?'':`<tr><td>${esc(a)}</td><td>${esc(b)}</td></tr>`;
     openDrill({title:`${p.company} ${p.name}`, sub:I.people[k].name, total:p.balance, html:'<table><tbody>'+
-      row('מספר תוכנית',p.no)+row('סוג',I.types[p.type])+row('מצב',p.status)+row('נפתחה',p.opened?dmy(p.opened)+'.'+p.opened.slice(0,4):'')+row('מסלול',p.track)+row('דמי ניהול',p.fee)
+      (p.qty?row('כמות',p.qty)+row('מחיר למטבע',ils(p.price))+row('מחיר נכון ל',dmy(p.priceAt)+'.'+p.priceAt.slice(0,4))+row('מקור המחיר',I.crypto.price_source)+row('מקור הכמות',I.crypto.source):row('מספר תוכנית',p.no))+row('סוג',I.types[p.type])+row('מצב',p.status)+row('נפתחה',p.opened?dmy(p.opened)+'.'+p.opened.slice(0,4):'')+row('מסלול',p.track)+row('דמי ניהול',p.fee)
       +row('מיועד להון',p.capital?ils(p.capital):'')+row('מיועד לקצבה',p.annuity?ils(p.annuity):'')+row('הפקדה חודשית',p.deposit?ils(p.deposit):'')
-      +row('תשואה 12 חודשים',pct(p.ret12))+row('תשואה 5 שנים (ממוצע שנתי)',pct(p.ret60))+row('חשיפה למניות',pct(p.stocks))+'</tbody></table>'});
+      +(p.qty?'':row('תשואה 12 חודשים',pct(p.ret12))+row('תשואה 5 שנים (ממוצע שנתי)',pct(p.ret60))+row('חשיפה למניות',pct(p.stocks)))+'</tbody></table>'});
+  }
+  const X=I.crypto;
+  $('#invCrypto').hidden=!X;
+  if(X){
+    const coins=byP[X.owner].filter(p=>p.type==='crypto'), now=sumBy(coins,p=>p.balance), gain=now-X.invested;
+    $('#invCrypto').innerHTML=`<h3>קריפטו (${esc(X.exchange)})</h3>
+      <div class="bars">${coins.map(p=>`<div class="row"><div>${esc(p.name)} · ${p.qty}</div><div class="small">${ils(p.price)} למטבע</div><div class="num">${ils(p.balance)}</div></div>`).join('')}</div>
+      <p style="margin:10px 0 4px">הופקדו נטו <b>${ils(X.invested)}</b>, שווה היום <b>${ils(now)}</b>. <b class="${gain<0?'neg':'pos'}">${gain<0?'הפסד':'רווח'} ${ils(Math.abs(gain))} (${Math.round(gain/X.invested*100)}%)</b>, עוד לא ממומש ולפני מס.</p>
+      <p class="small" style="margin:0">הפקדות: ${X.deposits.map(d=>`${ils(d[1])} ב-${dmy(d[0])}.${d[0].slice(0,4)}`).join(', ')}. משיכה: ${ils(X.withdrawn)}. עמלות עד היום: ${ils(X.fees)}. מחיר נכון ל-${dmy(coins[0].priceAt)}.${coins[0].priceAt.slice(0,4)}. מקור: ${esc(X.source)}.</p>`;
   }
   const A=I.agent;
   $('#invAgent').innerHTML=A?`<div class="lab small">${esc(A.role)}</div><b>${esc(A.name)}</b> · <a href="tel:${esc(A.phone.replace(/-/g,''))}" dir="ltr">${esc(A.phone)}</a>`:'';
   $('#invAgent').hidden=!A;
-  $('#invFoot').textContent=`מקור: ${I.source}. התשואות ברוטו, לפני דמי ניהול, והן תשואות עבר. זו תמונת מצב ולא ייעוץ השקעות.`;
+  $('#invFoot').textContent=`מקור: ${I.source}.${I.crypto?` קריפטו: הכמות כפול מחיר השוק ב-${I.crypto.price_source}, מתעדכן בכל טעינה.`:''} התשואות ברוטו, לפני דמי ניהול, והן תשואות עבר. זו תמונת מצב ולא ייעוץ השקעות.`;
 }
 drawInvest();
 
@@ -1262,7 +1295,7 @@ drawCredit();
 })();
 
 // ---------- home page
-(function(){
+function drawHome(){
   const f=forecast($('#bizToggle').checked), gap=f.tout-f.tin, B=DATA.balance, now=B[B.length-1];
   const h=new Date().getHours();
   $('#homeHi').textContent=h<5?'לילה טוב':h<12?'בוקר טוב':h<18?'צהריים טובים':'ערב טוב';
@@ -1270,7 +1303,7 @@ drawCredit();
   $('#homeLine').innerHTML=gap>0
     ? `בחודש רגיל נכנסים <b>${ils(f.tin)}</b> ויוצאים <b>${ils(f.tout)}</b>.`
     : `בחודש רגיל נכנסים <b>${ils(f.tin)}</b> ויוצאים <b>${ils(f.tout)}</b>, ונשארים <b class="pos">${ils(-gap)}</b>.`;
-  const I=C.investments, plans=I?Object.keys(I.people).flatMap(investPlans):[], saved=sumBy(plans,p=>p.balance);
+  const I=C.investments, plans=I?Object.keys(I.people).flatMap(allPlans):[], saved=sumBy(plans,p=>p.balance);
   const open=C.questions.filter((q,i)=>!isAns(q,i)).length, slip=DATA.slips[DATA.slips.length-1];
   const tile=(href,lab,val,note,cls='')=>`<a class="card kpi home-kpi" href="#${href}"><div class="lab">${esc(lab)}</div><div class="val ${cls}">${val}</div><div class="note">${esc(note)}</div></a>`;
   $('#homeKpis').innerHTML=tile('overview',gap>0?'חסר בחודש רגיל':'נשאר בחודש רגיל',ils(Math.abs(gap)),'הכנסות מול הוצאות צפויות',gap>0?'neg':'pos')
@@ -1288,7 +1321,8 @@ drawCredit();
     const [ico,...name]=parts.length>1?parts:['❓',...parts];  // the questions link is redrawn without its icon
     return `<a class="card home-tile" href="#${k}"><span class="home-ico">${ico}</span><b>${esc(name.join(' '))}</b><span class="small">${esc(about[k]||'')}</span></a>`;
   }).join('');
-})();
+}
+drawHome(); loadCryptoPrices();
 
 drawMonth(); drawTx(); showTab();
 };
