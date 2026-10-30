@@ -5,7 +5,7 @@
 //
 // Every upload is checked in three steps:
 //   1. Same bytes (SHA-256) as a document already here -> reported as a duplicate, not stored.
-//   2. Same document key (type + period, e.g. "bank:2026-04-18", "isracard:9571:2026-10-02",
+//   2. Same document key (type + period, e.g. "bank:2026-04-18", "isracard:<card>:2026-10-02",
 //      "slip:2026-09") as an existing document -> stored as its newer version; the older one stays
 //      in the list as a previous version.
 //   3. Bank (.xls), Max (.xlsx) and bit (.csv) exports are read here, the same way
@@ -59,7 +59,39 @@ async function loadList() {
 }
 
 const STATUS = { merged: "עודכן בנתונים", same: "בלי שינויים", pending: "ייקלט בבנייה הבאה", stored: "נשמר" };
+
+// The monthly checklist: what to upload at the start of each month, ticked by what is already here.
+// A bill counts once it covers this month: the bank export must reach into it, the Isracard
+// statement must be charged in it, the payslip must be last month's or this month's.
+function checklist(now = new Date()) {
+  const ym = d => d.toISOString().slice(0, 7);
+  const month = ym(new Date(Date.UTC(now.getFullYear(), now.getMonth(), 15)));
+  const prev = ym(new Date(Date.UTC(now.getFullYear(), now.getMonth() - 1, 15)));
+  const uploaded = f => f.uploadedAt?.toDate ? ym(f.uploadedAt.toDate()) === month : false;
+  const ofKind = k => files.filter(f => f.kind === k);
+  return [
+    { name: "בנק: תנועות עו״ש (xls)", hint: "מההעלאה הקודמת עד היום", done: ofKind("bank").some(f => f.period?.[1] >= month + "-01") },
+    { name: "מקס: עסקאות של כל הכרטיסים (xlsx)", hint: "כולל חיובים עתידיים", done: ofKind("max").some(uploaded) },
+    { name: "ישראכרט: דף פירוט חודשי (PDF)", hint: "החיוב של החודש", done: ofKind("isracard").some(f => f.period?.[0]?.startsWith(month)) },
+    { name: "bit: היסטוריית פעולות (csv)", hint: "", done: ofKind("bit").some(uploaded) },
+    { name: "תלוש פנסיה (PDF)", hint: "של החודש שעבר", done: ofKind("slip").some(f => f.key === "slip:" + prev || f.key === "slip:" + month) },
+  ];
+}
+function drawChecklist() {
+  const items = checklist(), left = items.filter(x => !x.done).length;
+  const label = new Date().toLocaleDateString("he-IL", { month: "long", year: "numeric" });
+  const pending = files.filter(f => f.status === "pending" && f.current !== false).length;
+  const others = (ctx.getData()?.config?.missing_sources || []);
+  $("#docCheck").innerHTML = `<h3 style="margin:0 0 4px">צ׳ק ליסט לתחילת ${esc(label)}</h3>
+    <p class="small" style="margin:0 0 10px">${left ? `נשארו ${left} מתוך ${items.length}. הזמן הכי טוב: בין ה-3 ל-5 בחודש.` : "הכול הועלה החודש ✓"}</p>
+    <ul class="chk-list">${items.map(x => `<li class="${x.done ? "done" : ""}"><span class="chk-box">${x.done ? "✓" : ""}</span><span>${esc(x.name)}${x.hint ? ` <span class="small">· ${esc(x.hint)}</span>` : ""}</span></li>`).join("")}</ul>
+    ${pending ? `<p class="small" style="margin:10px 0 0">⏳ ${pending} מסמכים מחכים לבנייה במחשב: node scripts/pull_docs.js ואז python scripts/build.py, ואחר כך ״רענון״.</p>` : ""}
+    ${others.length ? `<details style="margin-top:10px"><summary class="small" style="cursor:pointer">להעלות רק כשיש שינוי או כשזה מגיע (${others.length})</summary>
+      <ul class="chk-others">${others.map(m => `<li>${esc(m.name)}${m.why ? ` <span class="small">· ${esc(m.why)}</span>` : ""}</li>`).join("")}</ul></details>` : ""}`;
+}
+
 function render() {
+  drawChecklist();
   const when = f => f.uploadedAt?.toDate ? f.uploadedAt.toDate() : new Date(0);
   const byKey = {};
   files.forEach(f => (byKey[f.key] = byKey[f.key] || []).push(f));
@@ -462,4 +494,4 @@ async function removeFile(f) {
 }
 
 // For local tests of reading and merging (no Firestore involved).
-export const _internal = { classify, bankEntries, maxEntries, mergeLedger, mergeBit, applyPlan, notIgnored, sha256, setContext: c => { ctx = c; } };
+export const _internal = { classify, bankEntries, maxEntries, mergeLedger, mergeBit, applyPlan, notIgnored, sha256, checklist, drawChecklist, setContext: c => { ctx = c; }, setFiles: f => { files = f; } };
