@@ -154,6 +154,8 @@ h2{font-size:1.3rem;font-weight:700}
 .side-nav-title{text-align:center;margin-bottom:10px;padding:0 6px 12px;border-bottom:1px solid var(--line)}
 .side-nav-title h1{font-size:1.15rem;margin:0;font-weight:700;line-height:1.35}
 .side-nav-title p{margin:6px 0 0;font-size:12px;color:var(--muted);line-height:1.45}
+.upload-btn{display:inline-block;background:var(--accent);color:#1e3c72;font-weight:700;padding:9px 16px;border-radius:10px;cursor:pointer}
+.upload-btn:hover{background:#ffdc6b}
 .gsearch{margin:0 0 10px}
 .gsearch input{width:100%;padding:9px 12px;font-size:15px}
 nav.tabs{position:static;display:flex;flex-direction:column;gap:2px;margin:0;padding:0;border:0;background:none}
@@ -285,6 +287,13 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
   <p class="small" id="gateWho" style="margin-top:14px"></p>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
+<dialog id="docDlg" style="border:1px solid var(--glass-line);border-radius:14px;background:var(--solid);color:#fff;width:min(900px,calc(100vw - 24px));padding:16px">
+  <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px">
+    <h3 id="docTitle" style="margin:0;font-size:18px;word-break:break-all"></h3>
+    <div style="display:flex;gap:6px"><a class="sm" id="docDownload" style="padding:5px 10px;border:1px solid var(--glass-line);border-radius:10px;text-decoration:none;color:#fff">הורדה</a><button type="button" class="sm" id="docClose">סגירה</button></div>
+  </div>
+  <div id="docBody"></div>
+</dialog>
 <dialog id="drill">
   <div class="dh"><div><h3 id="drT"></h3><div class="small" id="drS"></div><div class="tot" id="drTot"></div></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="sm" id="drOpen">בכל התנועות</button><button type="button" class="sm" id="drClose">סגירה</button></div></div>
@@ -334,6 +343,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
     <a href="#questions">❓ שאלות</a>
     <a href="#tx">📋 כל התנועות</a>
     <a href="#sources">📁 מקורות</a>
+    <a href="#docs">📤 מסמכים</a>
   </nav>
   <div class="side-nav-foot">
     <span class="email" id="userEmail"></span>
@@ -454,6 +464,13 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
     <div class="card"><table id="payTbl"></table></div>
     <div class="card" id="payNotes"></div>
   </div>
+  <h2>מה השתנה מהחודש הקודם</h2>
+  <p class="sub">כל שורה בתלוש מול התלוש של החודש שלפניו. מוצגות רק השורות שהשתנו.</p>
+  <div class="card" id="payDiff">
+    <div class="filters"><select id="payDiffM" aria-label="חודש"></select><span class="small" id="payDiffHead"></span></div>
+    <div class="tblwrap"><table id="payDiffTbl"></table></div>
+    <p class="small" id="payDiffFoot"></p>
+  </div>
 </section>
 
 <!-- ================= questions ================= -->
@@ -476,6 +493,17 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 </section>
 
 <!-- ================= transactions ================= -->
+<!-- ================= documents ================= -->
+<section class="tab" id="docs">
+  <h2>מסמכים</h2>
+  <p class="sub">מעלים כאן כל מסמך: ייצוא מהבנק, ממקס או מ-bit, דפי ישראכרט, תלושים ומסמכים אחרים. כל מסמך נבדק: אם הוא כבר קיים הוא לא יועלה שוב, ואם זו גרסה חדשה של מסמך קיים, רק השינויים נכנסים לנתונים, אחרי אישור שלכם.</p>
+  <div class="card" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+    <label class="upload-btn"><input type="file" id="docUpload" multiple hidden>⬆️ העלאת מסמכים</label>
+    <span class="small" id="docProg"></span>
+  </div>
+  <div class="card" style="margin-top:12px"><div class="tblwrap"><table id="docTbl"></table></div></div>
+</section>
+
 <section class="tab" id="sources">
   <h2>מקורות המידע</h2>
   <p class="sub">כל מה שהניתוח מבוסס עליו. אם משהו חסר או לא מעודכן, אפשר להוסיף: קובץ חדש נכנס לתיקייה <code>finance/private/raw</code>, ומסמך או צילום מסך שולחים ל-Claude.</p>
@@ -759,6 +787,34 @@ $('#insList').innerHTML=C.insights.map((x,i)=>`<div class="card"><div class="n">
       : `<p>בכל חודש יורד <b>ניכוי היוון של ${ils(hiv)}</b>, המחיר של סכום חד-פעמי שנלקח בעבר. כדאי לברר אם הוא לתקופה מוגבלת.</p>`):''}
     <p>החודשים הגבוהים הם תשלומים שנתיים ולא עלייה בפנסיה: ${S.filter(s=>s.extras.length).map(s=>`${s.extras.map(e=>e[0]).join(', ')} ב${MN[+s.month.slice(5)-1]}`).join('; ')}. ביחד הם הוסיפו השנה כ-<b>${ils(extraNet)}</b> נטו מעל הבסיס.</p>
     <p class="small">מסקנה: לבנות את התקציב על הפנסיה הבסיסית${PN.hivun_net_gain?` (מעכשיו כ-${ils(pensionBase+PN.hivun_net_gain)})`:` (${ils(pensionBase)})`}, ואת התוספות השנתיות להעביר לכרית ביטחון.</p>`;
+})();
+
+// ---------- payslip: what changed from the previous month
+(function(){
+  const S=DATA.slips.filter(s=>s.items&&s.items.length);
+  if(S.length<2){ $('#payDiff').innerHTML='<p class="small">ההשוואה תופיע אחרי העלאת data.json החדש (עם פירוט השורות בכל תלוש).</p>'; return; }
+  $('#payDiffM').innerHTML=S.slice(1).map(s=>`<option value="${s.month}">${mLabel(s.month)}</option>`).reverse().join('');
+  const sgn=v=>(v>0?'+':'')+ils(v);
+  function draw(){
+    const i=S.findIndex(s=>s.month===$('#payDiffM').value), cur=S[i], prev=S[i-1];
+    const key=x=>x[0]+'|'+x[1], P=new Map(prev.items.map(x=>[key(x),x])), Cm=new Map(cur.items.map(x=>[key(x),x]));
+    const rows=[], same=[];
+    new Set([...P.keys(),...Cm.keys()]).forEach(k=>{
+      const a=P.get(k), b=Cm.get(k), x=b||a, imp=x.length>3;
+      const va=a?a[2]:0, vb=b?b[2]:0, d=Math.round((vb-va)*100)/100;
+      if(!d){ same.push(x[1]); return; }
+      rows.push({name:x[1], va, vb, d, imp, note: !a?'חדש החודש':!b?'לא מופיע החודש':''});
+    });
+    rows.sort((p,q)=>p.imp-q.imp || Math.abs(q.d)-Math.abs(p.d));
+    const dn=Math.round((cur.net-prev.net)*100)/100;
+    $('#payDiffHead').innerHTML=`נטו לתשלום: ${ils(prev.net)} ב${MN[+prev.month.slice(5)-1]} ← <b>${ils(cur.net)}</b> ב${MN[+cur.month.slice(5)-1]} · <b class="${dn<0?'neg':'pos'}">${sgn(dn)}</b>`;
+    $('#payDiffTbl').innerHTML=rows.length?'<thead><tr><th>שורה בתלוש</th><th class="amt">חודש קודם</th><th class="amt">החודש</th><th class="amt">שינוי בנטו</th></tr></thead><tbody>'+
+      rows.map(r=>`<tr${r.imp?' class="small"':''}><td>${esc(r.name)}${r.note?` <span class="small">(${r.note})</span>`:''}${r.imp?' <span class="small">(זקיפה לצורכי מס, לא נכנסת לנטו)</span>':''}</td>
+        <td class="amt small">${r.va?ils(r.va):'—'}</td><td class="amt">${r.vb?ils(r.vb):'—'}</td><td class="amt ${r.imp?'small':r.d<0?'neg':'pos'}">${r.imp?'—':sgn(r.d)}</td></tr>`).join('')+'</tbody>'
+      : '<tbody><tr><td class="small">אין שום שינוי בין שני התלושים.</td></tr></tbody>';
+    $('#payDiffFoot').textContent=same.length?`בלי שינוי (${same.length}): ${same.join(', ')}.`:'';
+  }
+  $('#payDiffM').onchange=draw; draw();
 })();
 
 // ---------- learned + questions
@@ -1065,7 +1121,7 @@ drawCredit();
 drawMonth(); drawTx(); showTab();
 };
 </script>
-<script type="module" src="app.js?v=28"></script>
+<script type="module" src="app.js?v=29"></script>
 <script>
 // If the app module fails to load (old cached files, blocked script), say so instead of hanging on "טוען…".
 setTimeout(() => {

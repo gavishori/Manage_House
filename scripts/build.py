@@ -214,6 +214,50 @@ def fix_line(line):
     return re.sub(r"[\d][\d.,]*", lambda m: m.group(0)[::-1], line[::-1])
 
 
+SLIP_CODE = re.compile(r"(?<![\d./])(\d{4})(?= [^\d\s])")
+SLIP_AMT = re.compile(r"-?\d[\d,]*\.\d\d-?")
+# Mandatory deductions: the first occurrence is this month's amount (later ones are year-to-date).
+SLIP_DEDUCTIONS = {"/450": "מס הכנסה", "/351": "ביטוח לאומי", "/352": "ביטוח בריאות"}
+
+
+def slip_items(lines):
+    """Every line of the payslip as [code, name, amount], to compare one month with another.
+    Components are '<4-digit code> <name> [quantity] <amount>'; two columns can share a line."""
+    items, seen = [], set()
+    # Only the details table: the notices above it mention years and phone numbers.
+    start = next((i for i, l in enumerate(lines) if "פירוט תשלומים וניכויים" in l), 0)
+    end = next((i for i, l in enumerate(lines) if "טבלת חודשי עבודה" in l and i > start), len(lines))
+    for l in lines[start:end]:
+        starts = [m.start() for m in SLIP_CODE.finditer(l)]
+        for i, s in enumerate(starts):
+            seg = l[s:starts[i + 1] if i + 1 < len(starts) else len(l)]
+            code, rest = seg[:4], seg[5:]
+            amts = SLIP_AMT.findall(rest)
+            if not amts or code in seen:
+                continue
+            name = re.split(r"\s-?\d[\d,]*\.\d", rest)[0].strip()
+            a = amts[-1]
+            v = -num(a.rstrip("-")) if a.endswith("-") else num(a)
+            if name.startswith(("זק.", "שווי")):
+                items.append([code, name, v, "imp"])  # imputed income: taxed, never paid out
+            else:
+                items.append([code, name, -abs(v) if code.startswith("2") else v])  # 2xxx: office deductions
+            seen.add(code)
+        for code, name in SLIP_DEDUCTIONS.items():
+            if code not in seen and code + " " + name in l:
+                amts = SLIP_AMT.findall(l[l.index(code):])
+                if amts:
+                    items.append([code, name, -num(amts[0])])
+                    seen.add(code)
+        if "נכויים הפרשים" in l and "diff" not in seen:
+            amts = SLIP_AMT.findall(l)
+            if amts:
+                a = amts[-1]
+                items.append(["diff", "הפרשי ניכויים מחודשים קודמים", num(a.rstrip("-")) if a.endswith("-") else -num(a)])
+                seen.add("diff")
+    return items
+
+
 def load_payslips(files):
     out = []
     for f in files:
@@ -240,6 +284,7 @@ def load_payslips(files):
                     if e in l and not any(x[0] == e for x in slip["extras"]):
                         slip["extras"].append([e, num(nums[-1])])
                         break
+        slip["items"] = slip_items(lines)
         if "net" in slip:
             out.append(slip)
     return sorted({s["month"]: s for s in out}.values(), key=lambda s: s["month"])
