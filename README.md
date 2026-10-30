@@ -13,6 +13,8 @@ docs/                האפליקציה שמתפרסמת ב-Firebase Hosting ו�
   index.html         הדשבורד
   app.js             התחברות עם Google, טעינה ושמירה מול Firestore
   firebase-config.js הגדרות הפרויקט ב-Firebase (ציבוריות מטבען)
+  files.js           לשונית ״מסמכים״: העלאה, בדיקת כפילות וגרסאות, ומיזוג של השינויים בלבד
+  reader.js          קריאת PDF: טקסט מסודר בשורות, ו-OCR לסריקות. עצמאי, אפשר להעתיק לפרויקט אחר
 scripts/build.py     הופך קבצי ייצוא לקובץ נתונים אחד, data.json
 firestore.rules      מי מורשה לקרוא ולכתוב את הנתונים
 finance/private/     לא נכנס ל-git: קבצי ייצוא, config.json, data.json

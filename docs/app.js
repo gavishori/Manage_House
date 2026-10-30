@@ -9,8 +9,8 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, ge
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 // Bump ?v= on every change: GitHub Pages caches files for ~10 minutes, and an old
 // cached firebase-config.js from the previous site broke the module import.
-import { firebaseConfig, ownerEmail } from "./firebase-config.js?v=30";
-import { initDocs } from "./files.js?v=30";
+import { firebaseConfig, ownerEmail } from "./firebase-config.js?v=31";
+import { initDocs } from "./files.js?v=31";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -130,6 +130,12 @@ async function saveMerged(data) {
   await setDoc(dataRef, { json: text, generated: data.generated, uploadedAt: serverTimestamp() });
   loadedData = data;
   window.renderApp(data, loadedState, saveState);
+}
+// Balances from a new portfolio report live in finance/state, so a rebuild of data.json keeps them.
+async function saveInvest(investments) {
+  loadedState.investments = investments;
+  await setDoc(stateRef, { investments, updatedAt: serverTimestamp() }, { merge: true });
+  window.renderApp(loadedData, loadedState, saveState);
 }
 // A data.json built on the computer doesn't have what was merged from uploaded documents since.
 const keepsMerged = () => !loadedData?.docsMerged || confirm(
@@ -255,7 +261,8 @@ if (!shareId) onAuthStateChanged(auth, async user => {
     const data = JSON.parse(d.data().json);
     loadedGenerated = data.generated; loadedData = data; loadedState = st.exists() ? st.data() : {};
     window.renderApp(data, loadedState, saveState);
-    initDocs(db, { email: user.email, isOwner: user.email === ownerEmail, getData: () => loadedData, saveData: saveMerged });
+    initDocs(db, { email: user.email, isOwner: user.email === ownerEmail, getData: () => loadedData, saveData: saveMerged,
+      getInvest: () => loadedState.investments || {}, saveInvest });
     if (canRemember && !(await loadHandle())) $("#refreshBtn").title = "כדי שרענון ימשוך את data.json אוטומטית, בחרו אותו פעם אחת דרך ״עדכון נתונים״";
   } catch (e) {
     if (e.code === "permission-denied") {

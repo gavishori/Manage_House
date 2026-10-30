@@ -12,8 +12,11 @@
 //      scripts/build.py reads them, and compared with the transactions already in finance/data:
 //      only new and changed rows are merged, after a confirmation that lists them.
 //      PDFs (Isracard statements, payslips) are stored and read at the next build.py run.
+//   4. A portfolio report ("ניתוח תיק"), even a scan, is read by reader.js: only balances that
+//      changed are updated in the investments tab, after a confirmation.
 import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { readPdf, allLines, parsePortfolio, sameNumber } from "./reader.js?v=31";
 
 const CHUNK = 700000;               // base64 characters per Firestore document (limit ~1MB)
 const MAX_FILE = 15 * 1024 * 1024;
@@ -121,18 +124,6 @@ const loadScript = src => new Promise((res, rej) => {
   document.head.appendChild(s);
 });
 const XLSX_SRC = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
-const PDFJS = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/";
-async function pdfText(bytes) {
-  await loadScript(PDFJS + "pdf.min.js");
-  window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + "pdf.worker.min.js";
-  const pdf = await window.pdfjsLib.getDocument({ data: bytes.slice() }).promise;
-  let text = "";
-  for (let p = 1; p <= Math.min(pdf.numPages, 2); p++) {
-    const c = await (await pdf.getPage(p)).getTextContent();
-    text += c.items.map(i => i.str).join(" ") + "\n";
-  }
-  return text;
-}
 
 // ---------- reading the exports (mirrors scripts/build.py)
 const excelDate = v => {
@@ -218,8 +209,18 @@ async function classify(file, bytes) {
     if (bit) { const p = span(bit.map(t => t.d)); return { kind: "bit", label: "bit", key: "bit:" + p[0].slice(0, 4), period: p, bit }; }
   }
   if (ext === "pdf") {
-    let t = "";
-    try { t = await pdfText(bytes); } catch { /* unreadable PDF: stored by name */ }
+    let t = "", first = null;
+    try { first = await readPdf(bytes, { pages: 2, ocr: false }); t = allLines(first).join("\n"); }
+    catch { /* unreadable PDF: stored by name */ }
+    // No text layer: a scan. A portfolio report has its figures on pages 3-4.
+    if (first && !t.trim()) {
+      const scan = await readPdf(bytes, { from: Math.min(3, Math.max(1, first.numPages - 1)), pages: 2, onProgress: progress });
+      const pf = parsePortfolio(scan);
+      if (pf?.plans.length) {
+        const who = personOf(pf.person + " " + name);
+        return { kind: "portfolio", label: `ניתוח תיק${who ? ": " + who.name : ""}`, key: "portfolio:" + (who?.key || pf.person || name), period: null, portfolio: pf, who };
+      }
+    }
     // pdf.js gives the words in logical order ("פרוט פעולותיך לתאריך: 02/03/26"); the payslip's
     // words come in reverse order ("2026 ינואר לחודש שכר תלוש").
     if (/ישראכרט|isracard/i.test(t) && /פי?רוט פעולותיך/.test(t)) {
@@ -239,6 +240,40 @@ async function classify(file, bytes) {
     }
   }
   return { kind: "other", label: "מסמך", key: "file:" + name.toLowerCase(), period: null };
+}
+
+// Which person a portfolio report belongs to, by the names in the investments config.
+function personOf(text) {
+  const P = ctx.getData()?.config?.investments?.people || {};
+  const key = Object.keys(P).find(k => text.includes(P[k].match));
+  return key ? { key, name: P[key].name } : null;
+}
+
+// Compares a report with the plans already known: only different balances count (a shekel either
+// way is rounding). Plans with the same number can exist, so each is matched once, closest first.
+function planPortfolio(pf, who) {
+  const I = ctx.getData().config.investments, cur = ctx.getInvest()[who.key] || {}, bal = cur.balances || {};
+  const pool = I.people[who.key].plans.map(p => { const k = p.no + "|" + p.company; return { p, k, balance: k in bal ? bal[k] : p.balance, used: false }; });
+  const out = { changed: [], added: [], same: 0 };
+  for (const r of pf.plans.filter(x => x.balance != null)) {
+    const cands = pool.filter(x => !x.used && sameNumber(x.p.no, r.no)).sort((a, b) => Math.abs(a.balance - r.balance) - Math.abs(b.balance - r.balance));
+    const m = cands[0];
+    if (!m) { out.added.push(r); continue; }
+    m.used = true;
+    if (Math.abs(m.balance - r.balance) <= 1) out.same++;
+    else out.changed.push({ k: m.k, name: `${m.p.company} ${m.p.name}`, before: m.balance, after: r.balance });
+  }
+  return out;
+}
+function portfolioText(name, pf, p) {
+  const out = [`מהדוח ${name}:`];
+  if (p.changed.length) out.push("", `${p.changed.length} יתרות השתנו:`, ...p.changed.map(c => `• ${c.name}: ${ils(c.before)} ← ${ils(c.after)}`));
+  if (p.added.length) out.push("", `${p.added.length} תוכניות חדשות:`, ...p.added.map(a => `• ${a.no}: ${ils(a.balance)}`));
+  out.push("", pf.exact ? `הקריאה נבדקה: סכום השורות שווה לסה״כ בדוח (${ils(pf.total)}).`
+    : pf.total ? `שימו לב: סכום השורות (${ils(pf.sum)}) שונה מהסה״כ בדוח (${ils(pf.total)}). כדאי לבדוק מול הדוח.`
+    : `לא מצאתי בדוח סה״כ לבדיקה. סכום השורות: ${ils(pf.sum)}.`);
+  out.push("", `${p.same} תוכניות זהות לא ישתנו. לעדכן?`);
+  return out.join("\n");
 }
 
 // ---------- turning rows into ledger entries (same rules as build.py)
@@ -427,6 +462,20 @@ async function upload(list) {
         report.push(`${file.name}: העדכון בוטל, הקובץ לא נשמר.`);
         continue;
       }
+    } else if (info.portfolio && info.who) {
+      const p = planPortfolio(info.portfolio, info.who);
+      if (!p.changed.length && !p.added.length) {
+        status = "same"; summary = `${p.same} תוכניות, בלי שינוי`;
+      } else if (confirm(portfolioText(file.name, info.portfolio, p))) {
+        const all = ctx.getInvest(), cur = all[info.who.key] || {};
+        await ctx.saveInvest({ ...all, [info.who.key]: { asOf: new Date().toISOString().slice(0, 10),
+          balances: { ...(cur.balances || {}), ...Object.fromEntries(p.changed.map(c => [c.k, c.after])) },
+          added: [...(cur.added || []), ...p.added.map(a => ({ no: a.no, type: a.section, balance: a.balance }))] } });
+        status = "merged"; summary = `${p.changed.length} יתרות עודכנו, ${p.added.length} חדשות, ${p.same} זהות`;
+      } else {
+        report.push(`${file.name}: העדכון בוטל, הקובץ לא נשמר.`);
+        continue;
+      }
     } else if (info.kind === "isracard" || info.kind === "slip") {
       status = "pending";
     }
@@ -494,4 +543,4 @@ async function removeFile(f) {
 }
 
 // For local tests of reading and merging (no Firestore involved).
-export const _internal = { classify, bankEntries, maxEntries, mergeLedger, mergeBit, applyPlan, notIgnored, sha256, checklist, drawChecklist, setContext: c => { ctx = c; }, setFiles: f => { files = f; } };
+export const _internal = { classify, bankEntries, maxEntries, mergeLedger, mergeBit, applyPlan, notIgnored, sha256, checklist, drawChecklist, planPortfolio, portfolioText, setContext: c => { ctx = c; }, setFiles: f => { files = f; } };

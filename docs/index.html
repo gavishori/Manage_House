@@ -348,6 +348,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
     <a href="#fixed">🏠 התחייבויות קבועות</a>
     <a href="#insights">💡 תובנות</a>
     <a href="#pension">🎖️ פנסיה</a>
+    <a href="#invest">📈 השקעות</a>
     <a href="#questions">❓ שאלות</a>
     <a href="#tx">📋 כל התנועות</a>
     <a href="#sources">📁 מקורות</a>
@@ -501,6 +502,17 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 </section>
 
 <!-- ================= transactions ================= -->
+<!-- ================= investments ================= -->
+<section class="tab" id="invest">
+  <h2>השקעות וחסכונות</h2>
+  <p class="sub" id="invSub"></p>
+  <div class="kpis" id="invKpis"></div>
+  <div class="card" style="margin-top:12px"><h3>איפה הכסף</h3><div class="bars" id="invTypes"></div></div>
+  <div id="invPeople"></div>
+  <div class="card" id="invAgent" style="margin-top:12px"></div>
+  <p class="small" id="invFoot"></p>
+</section>
+
 <!-- ================= documents ================= -->
 <section class="tab" id="docs">
   <h2>מסמכים</h2>
@@ -826,6 +838,52 @@ $('#insList').innerHTML=C.insights.map((x,i)=>`<div class="card"><div class="n">
   $('#payDiffM').onchange=draw; draw();
 })();
 
+// ---------- investments
+// Plans come from the portfolio report in the config; balances updated by a later report are kept
+// in STATE.investments (see files.js), so rebuilding data.json doesn't lose them.
+function investPlans(key){
+  const P=C.investments.people[key], o=(STATE.investments||{})[key]||{}, bal=o.balances||{};
+  return P.plans.map(p=>{ const k=p.no+'|'+p.company; return k in bal ? {...p, balance:bal[k], updated:true} : p; })
+    .concat((o.added||[]).map(a=>({...a, type:a.type||'gemel', company:'', name:'תוכנית חדשה מדוח', deposit:0, added:true})));
+}
+function drawInvest(){
+  const I=C.investments;
+  const link=document.querySelector('#tabs a[href="#invest"]');
+  if(!I){ if(link) link.hidden=true; return; }
+  const keys=Object.keys(I.people), byP=Object.fromEntries(keys.map(k=>[k,investPlans(k)])), all=keys.flatMap(k=>byP[k].map(p=>({...p,who:I.people[k].name})));
+  const total=sumBy(all,p=>p.balance), cap=sumBy(all,p=>p.capital||0), dep=sumBy(all,p=>p.deposit||0);
+  const tile=(lab,val,note)=>`<div class="card kpi"><div class="lab">${esc(lab)}</div><div class="val">${val}</div><div class="note">${esc(note)}</div></div>`;
+  const asOf=keys.map(k=>(STATE.investments||{})[k]?.asOf).filter(Boolean).sort().pop()||I.as_of;
+  $('#invSub').textContent=`כל החסכונות של הבית במקום אחד. נכון ל-${dmy(asOf)}.${asOf.slice(0,4)}. דוח חדש שמעלים בלשונית ״מסמכים״ מעדכן כאן רק את מה שהשתנה.`;
+  $('#invKpis').innerHTML=tile('סה״כ חסכונות',ils(total),`${all.length} תוכניות`)
+    +keys.map(k=>tile(I.people[k].name,ils(sumBy(byP[k],p=>p.balance)),`${byP[k].length} תוכניות`)).join('')
+    +tile('מיועד להון',ils(cap),`${Math.round(cap/total*100)}% מהחסכונות, השאר לקצבה`)
+    +tile('הפקדות לחיסכון בחודש',ils(dep),`${all.filter(p=>p.deposit).length} תוכניות פעילות`);
+  const T=Object.entries(I.types).map(([t,name])=>[name,sumBy(all.filter(p=>p.type===t),p=>p.balance)]).filter(r=>r[1]).sort((a,b)=>b[1]-a[1]);
+  $('#invTypes').innerHTML=T.map(([n,v])=>`<div class="row"><div>${esc(n)}</div><div class="bar"><span style="width:${v/T[0][1]*100}%"></span></div><div class="num">${ils(v)}</div></div>`).join('');
+  const pct=v=>v==null?'–':v.toFixed(1)+'%', year=d=>d?d.slice(0,4):'';
+  $('#invPeople').innerHTML=keys.map(k=>{
+    const rows=byP[k].slice().sort((a,b)=>b.balance-a.balance);
+    return `<h3 style="margin:22px 0 8px">${esc(I.people[k].name)} · ${ils(sumBy(rows,p=>p.balance))}</h3><div class="card"><div class="tblwrap"><table>
+      <thead><tr><th>תוכנית</th><th class="hide-sm">סוג</th><th class="hide-sm">מסלול</th><th class="hide-sm">דמי ניהול</th><th class="amt hide-sm">תשואה 12 ח׳</th><th class="amt hide-sm">5 שנים</th><th class="amt hide-sm">מניות</th><th class="amt">יתרה</th></tr></thead><tbody>`
+      +rows.map(p=>`<tr class="click" style="cursor:pointer" data-inv="${esc(k)}|${esc(p.no)}|${esc(p.company)}"><td>${esc(p.company)} · ${esc(p.name)}<div class="small">${year(p.opened)?'מ-'+year(p.opened)+' · ':''}${esc(p.status||'')}${p.deposit?' · מפקידים '+ils(p.deposit):''}${p.updated?' · עודכן מדוח':''}</div></td><td class="small hide-sm">${esc(I.types[p.type]||'')}</td><td class="small hide-sm">${esc(p.track||'')}</td><td class="small hide-sm">${esc(p.fee||'')}</td><td class="amt hide-sm">${pct(p.ret12)}</td><td class="amt hide-sm">${pct(p.ret60)}</td><td class="amt hide-sm">${pct(p.stocks)}</td><td class="amt">${ils(p.balance)}</td></tr>`).join('')
+      +'</tbody></table></div></div>';
+  }).join('');
+  $('#invPeople').querySelectorAll('tr[data-inv]').forEach(tr=>tr.onclick=()=>{
+    const [k,no,co]=tr.dataset.inv.split('|'), p=byP[k].find(x=>x.no===no&&x.company===co);
+    const row=(a,b)=>b==null||b===''?'':`<tr><td>${esc(a)}</td><td>${esc(b)}</td></tr>`;
+    openDrill({title:`${p.company} ${p.name}`, sub:I.people[k].name, total:p.balance, html:'<table><tbody>'+
+      row('מספר תוכנית',p.no)+row('סוג',I.types[p.type])+row('מצב',p.status)+row('נפתחה',p.opened?dmy(p.opened)+'.'+p.opened.slice(0,4):'')+row('מסלול',p.track)+row('דמי ניהול',p.fee)
+      +row('מיועד להון',p.capital?ils(p.capital):'')+row('מיועד לקצבה',p.annuity?ils(p.annuity):'')+row('הפקדה חודשית',p.deposit?ils(p.deposit):'')
+      +row('תשואה 12 חודשים',pct(p.ret12))+row('תשואה 5 שנים (ממוצע שנתי)',pct(p.ret60))+row('חשיפה למניות',pct(p.stocks))+'</tbody></table>'});
+  });
+  const A=I.agent;
+  $('#invAgent').innerHTML=A?`<div class="lab small">${esc(A.role)}</div><b>${esc(A.name)}</b> · <a href="tel:${esc(A.phone.replace(/-/g,''))}" dir="ltr">${esc(A.phone)}</a>`:'';
+  $('#invAgent').hidden=!A;
+  $('#invFoot').textContent=`מקור: ${I.source}. התשואות ברוטו, לפני דמי ניהול, והן תשואות עבר. זו תמונת מצב ולא ייעוץ השקעות.`;
+}
+drawInvest();
+
 // ---------- learned + questions
 $('#learnTbl').innerHTML='<tbody>'+C.learned.map(r=>`<tr><td style="width:34%;font-weight:600">${esc(r[0])}</td><td>${esc(r[1])}</td></tr>`).join('')+'</tbody>';
 const ANS_KEY='mh-fin-answers-r2';
@@ -1130,7 +1188,7 @@ drawCredit();
 drawMonth(); drawTx(); showTab();
 };
 </script>
-<script type="module" src="app.js?v=30"></script>
+<script type="module" src="app.js?v=31"></script>
 <script>
 // If the app module fails to load (old cached files, blocked script), say so instead of hanging on "טוען…".
 setTimeout(() => {
