@@ -32,6 +32,32 @@ service cloud.firestore {
       allow read, write: if allowed() && docId in ['data', 'state'];
     }
 
+    // Uploaded documents ("מסמכים" tab): metadata in files/{id}, the content as base64 pieces
+    // in fileChunks/{id}_{i}. Allowed users read and upload; an upload may only mark an older
+    // version as no longer current; only the owner deletes.
+    match /files/{id} {
+      allow read: if allowed();
+      allow create: if allowed()
+                    && request.resource.data.keys().hasOnly(['name', 'type', 'size', 'chunks', 'sha', 'key', 'kind', 'label',
+                                                              'period', 'status', 'summary', 'current', 'uploadedAt', 'uploadedBy'])
+                    && request.resource.data.name is string && request.resource.data.name.size() < 300
+                    && request.resource.data.sha is string
+                    && request.resource.data.chunks is int && request.resource.data.chunks > 0 && request.resource.data.chunks <= 40
+                    && request.resource.data.uploadedBy == request.auth.token.email;
+      allow update: if allowed()
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['current'])
+                    && request.resource.data.current == false;
+      allow delete: if isOwner();
+    }
+    match /fileChunks/{id} {
+      allow read: if allowed();
+      allow create: if allowed()
+                    && request.resource.data.keys().hasOnly(['fileId', 'i', 'data'])
+                    && request.resource.data.data is string && request.resource.data.data.size() <= 700000
+                    && id == request.resource.data.fileId + '_' + string(request.resource.data.i);
+      allow delete: if isOwner();
+    }
+
     match /access/{email} {
       allow read: if isOwner() || (signedIn() && request.auth.token.email == email);
       allow create, update: if isOwner()

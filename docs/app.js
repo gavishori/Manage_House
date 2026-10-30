@@ -9,7 +9,8 @@ import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, ge
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 // Bump ?v= on every change: GitHub Pages caches files for ~10 minutes, and an old
 // cached firebase-config.js from the previous site broke the module import.
-import { firebaseConfig, ownerEmail } from "./firebase-config.js?v=28";
+import { firebaseConfig, ownerEmail } from "./firebase-config.js?v=29";
+import { initDocs } from "./files.js?v=29";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -122,6 +123,20 @@ const idb = (mode, fn) => new Promise((res, rej) => {
 const saveHandle = h => idb("readwrite", st => st.put(h, "data")).catch(() => {});
 const loadHandle = () => idb("readonly", st => st.get("data")).catch(() => null);
 
+// Data merged from the documents tab: saved to finance/data and shown at once.
+async function saveMerged(data) {
+  const text = JSON.stringify(data);
+  if (new Blob([text]).size > 1_000_000) throw new Error("הנתונים גדולים מדי למסמך אחד ב-Firestore");
+  await setDoc(dataRef, { json: text, generated: data.generated, uploadedAt: serverTimestamp() });
+  loadedData = data;
+  window.renderApp(data, loadedState, saveState);
+}
+// A data.json built on the computer doesn't have what was merged from uploaded documents since.
+const keepsMerged = () => !loadedData?.docsMerged || confirm(
+  `באתר יש תנועות שנקלטו ממסמכים שהועלו (לשונית ״מסמכים״) אחרי הבנייה האחרונה. קובץ data.json מהמחשב יחליף אותן, אלא אם הרצת קודם את scripts/pull_docs.js.
+
+להעלות בכל זאת?`);
+
 async function uploadText(text) {
   const data = JSON.parse(text);
   if (!data.ledger || !data.config || !data.balance) throw new Error("זה לא קובץ data.json של scripts/build.py");
@@ -136,6 +151,7 @@ async function uploadPicked(text) {
   if (gen && gen === loadedGenerated &&
       !confirm(`הקובץ שבחרת נבנה ב-${gen}, בדיוק כמו הנתונים שכבר באתר.
 כנראה נבחר קובץ ישן. להעלות בכל זאת?`)) return false;
+  if (!keepsMerged()) return false;
   await uploadText(text);
   alert(`הנתונים עודכנו: נבנו ב-${gen || "?"}. הדף ייטען מחדש.`);
   return true;
@@ -173,7 +189,7 @@ $("#refreshBtn").onclick = async () => {
       if (perm === "granted") {
         const text = await (await h.getFile()).text();
         const gen = JSON.parse(text).generated;
-        if (gen && gen !== loadedGenerated) { btn.textContent = "מעלה נתונים חדשים…"; await uploadText(text); }
+        if (gen && gen !== loadedGenerated && keepsMerged()) { btn.textContent = "מעלה נתונים חדשים…"; await uploadText(text); }
       }
     }
   } catch (err) {
@@ -239,6 +255,7 @@ if (!shareId) onAuthStateChanged(auth, async user => {
     const data = JSON.parse(d.data().json);
     loadedGenerated = data.generated; loadedData = data; loadedState = st.exists() ? st.data() : {};
     window.renderApp(data, loadedState, saveState);
+    initDocs(db, { email: user.email, isOwner: user.email === ownerEmail, getData: () => loadedData, saveData: saveMerged });
     if (canRemember && !(await loadHandle())) $("#refreshBtn").title = "כדי שרענון ימשוך את data.json אוטומטית, בחרו אותו פעם אחת דרך ״עדכון נתונים״";
   } catch (e) {
     if (e.code === "permission-denied") {

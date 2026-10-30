@@ -409,7 +409,8 @@ def main():
         sources=describe_sources(files),
         ledger=ledger, balance=balance, bit=bit, slips=slips,
         config={k: cfg[k] for k in ("title", "household", "categories", "forecast", "fixed_commitments",
-                                    "insights", "learned", "questions", "pension", "cards", "manual_sources", "missing_sources", "summary") if k in cfg},
+                                    "insights", "learned", "questions", "pension", "cards", "manual_sources", "missing_sources", "summary",
+                                    "bank_rules", "card_rules") if k in cfg},
     )
     OUT.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
     print(f"bank {len(bank)} ({b_from}..{b_to}) · card {len(cards)} ({c_from}..{c_to}) · "
