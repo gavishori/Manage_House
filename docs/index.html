@@ -912,19 +912,20 @@ let cryptoPx=store.get('mh-crypto-px',null);
 function cryptoPlans(key){
   const X=C.investments?.crypto; if(!X||X.owner!==key) return [];
   return X.holdings.map(h=>{
-    const price=cryptoPx?.prices?.[h.id]??h.ref_price, at=cryptoPx?.prices?.[h.id]?cryptoPx.at:X.as_of, balance=Math.round(h.qty*price);
-    return {type:'crypto',company:'קריפטו',name:h.sym,no:h.sym,opened:'',status:'',track:'',fee:'',balance,capital:balance,annuity:0,deposit:0,ret12:null,ret60:null,stocks:null,qty:h.qty,price,priceAt:at};
+    const price=cryptoPx?.prices?.[h.id]??h.ref_price, usd=cryptoPx?.usd?.[h.id]??h.ref_usd, at=cryptoPx?.prices?.[h.id]?cryptoPx.at:X.as_of, balance=Math.round(h.qty*price);
+    return {type:'crypto',company:'קריפטו',name:h.sym,no:h.sym,opened:'',status:'',track:'',fee:'',balance,capital:balance,annuity:0,deposit:0,ret12:null,ret60:null,stocks:null,qty:h.qty,price,usd,priceAt:at};
   });
 }
 const allPlans=key=>investPlans(key).concat(cryptoPlans(key));
 async function loadCryptoPrices(){
   const X=C.investments?.crypto; if(!X) return;
   try{
-    const r=await fetch('https://api.coingecko.com/api/v3/simple/price?vs_currencies=ils&ids='+X.holdings.map(h=>h.id).join(','));
+    const r=await fetch('https://api.coingecko.com/api/v3/simple/price?vs_currencies=ils,usd&ids='+X.holdings.map(h=>h.id).join(','));
     if(!r.ok) return;
     const j=await r.json(), prices=Object.fromEntries(X.holdings.filter(h=>j[h.id]?.ils).map(h=>[h.id,j[h.id].ils]));
     if(!Object.keys(prices).length) return;
-    cryptoPx={prices,at:new Date().toISOString().slice(0,10)};
+    const usd=Object.fromEntries(X.holdings.filter(h=>j[h.id]?.usd).map(h=>[h.id,j[h.id].usd]));
+    cryptoPx={prices,usd,at:new Date().toISOString().slice(0,10)};
     store.set('mh-crypto-px',cryptoPx);
     drawInvest(); drawHome();
   }catch(e){ console.warn('crypto prices failed',e); }
@@ -934,20 +935,20 @@ async function loadCryptoPrices(){
 function cryptoCoin(p){
   const T=C.investments.crypto.trades.filter(t=>t[2]===p.name), lots=[], rows=[];
   const take=q=>{ let cost=0; for(const l of lots){ const u=Math.min(q,l.left); cost+=l.ils*u/l.qty; l.left-=u; q-=u; if(q<=1e-9) break; } return cost; };
-  T.forEach(([d,kind,,qty,ils])=>{
-    if(kind==='buy'){ const r={d,kind,qty,ils}; lots.push({...r,left:qty,row:r}); rows.push(r); }
-    else { const r={d,kind,qty,ils}; r.gain=ils-take(qty); rows.push(r); }
+  T.forEach(([d,kind,,qty,ils,rate])=>{
+    if(kind==='buy'){ const r={d,kind,qty,ils,rate}; lots.push({...r,left:qty,row:r}); rows.push(r); }
+    else { const r={d,kind,qty,ils,rate}; r.gain=ils-take(qty); rows.push(r); }
   });
   const bought=sumBy(T.filter(t=>t[1]==='buy'),t=>t[3]), sold=sumBy(T.filter(t=>t[1]==='sell'),t=>t[3]), feeQty=Math.max(0,bought-sold-p.qty);
   const feeCost=take(feeQty);
   lots.forEach(l=>{ l.row.left=l.left; l.row.gain=l.left*p.price-l.ils*l.left/l.qty; });
   const paid=sumBy(T.filter(t=>t[1]==='buy'),t=>t[4]), got=sumBy(T.filter(t=>t[1]==='sell'),t=>t[4]), gain=p.qty*p.price+got-paid;
-  const cls=v=>v<0?'neg':'pos', sg=v=>(v>0?'+':'')+ils(v);
+  const cls=v=>v<0?'neg':'pos', sg=v=>(v>0?'+':'')+ils(v), usd=v=>`<span dir="ltr">$${Math.round(v).toLocaleString('en-US')}</span>`;
   return `<h3 style="margin:16px 0 4px">${esc(p.name)}: ${gain<0?'הפסד':'רווח'} <span class="${cls(gain)}">${ils(Math.abs(gain))}</span></h3>
-    <p class="small" style="margin:0 0 6px">קניות ${ils(paid)}${got?`, מכירות ${ils(got)}`:''}, שווי היום ${ils(p.qty*p.price)}.</p>
-    <div class="tblwrap"><table><thead><tr><th>תאריך</th><th>פעולה</th><th class="amt">כמות</th><th class="amt">סכום</th><th class="amt">מחיר למטבע</th><th class="amt">רווח עד היום</th></tr></thead><tbody>`+
-    rows.map(r=>`<tr><td>${dmy(r.d)}.${r.d.slice(0,4)}</td><td>${r.kind==='buy'?'קנייה':'מכירה'}${r.kind==='buy'&&r.left<r.qty-1e-9?` <span class="small">(${r.left<1e-6?'נמכר במלואו':'נשארו '+r.left.toFixed(4)})</span>`:''}</td><td class="amt">${r.qty.toFixed(4)}</td><td class="amt">${ils(r.ils)}</td><td class="amt">${ils(r.ils/r.qty)}</td><td class="amt ${cls(r.gain)}">${Math.abs(r.gain)<1?'—':sg(r.gain)}</td></tr>`).join('')+
-    `<tr><td></td><td>עמלות שמירה</td><td class="amt">${feeQty.toFixed(4)}</td><td></td><td></td><td class="amt neg">${sg(-feeCost)}</td></tr></tbody></table></div>`;
+    <p class="small" style="margin:0 0 6px">קניות ${ils(paid)}${got?`, מכירות ${ils(got)}`:''}, שווי היום ${ils(p.qty*p.price)}. מחיר היום: ${ils(p.price)} למטבע, ${usd(p.usd)}.</p>
+    <div class="tblwrap"><table><thead><tr><th>תאריך</th><th>פעולה</th><th class="amt">כמות</th><th class="amt">סכום</th><th class="amt">מחיר למטבע</th><th class="amt">מחיר בדולר</th><th class="amt">רווח עד היום</th></tr></thead><tbody>`+
+    rows.map(r=>`<tr><td>${dmy(r.d)}.${r.d.slice(0,4)}</td><td>${r.kind==='buy'?'קנייה':'מכירה'}${r.kind==='buy'&&r.left<r.qty-1e-9?` <span class="small">(${r.left<1e-6?'נמכר במלואו':'נשארו '+r.left.toFixed(4)})</span>`:''}</td><td class="amt">${r.qty.toFixed(4)}</td><td class="amt">${ils(r.ils)}</td><td class="amt">${ils(r.ils/r.qty)}</td><td class="amt">${usd(r.ils/r.qty/r.rate)}</td><td class="amt ${cls(r.gain)}">${Math.abs(r.gain)<1?'—':sg(r.gain)}</td></tr>`).join('')+
+    `<tr><td></td><td>עמלות שמירה</td><td class="amt">${feeQty.toFixed(4)}</td><td></td><td></td><td></td><td class="amt neg">${sg(-feeCost)}</td></tr></tbody></table></div>`;
 }
 function drawInvest(){
   const I=C.investments;
@@ -1005,7 +1006,7 @@ function drawInvest(){
       <div class="bars">${coins.map(p=>`<div class="row"><div>${esc(p.name)} · ${p.qty}</div><div class="small">${ils(p.price)} למטבע</div><div class="num">${ils(p.balance)}</div></div>`).join('')}</div>
       <p style="margin:10px 0 4px">הופקדו נטו <b>${ils(X.invested)}</b>, שווה היום <b>${ils(now)}</b>. <b class="${gain<0?'neg':'pos'}">${gain<0?'הפסד':'רווח'} ${ils(Math.abs(gain))} (${Math.round(gain/X.invested*100)}%)</b>, עוד לא ממומש ולפני מס.</p>
       ${coins.map(cryptoCoin).join('')}
-      <p class="small" style="margin:12px 0 0">הפקדות: ${X.deposits.map(d=>`${ils(d[1])} ב-${dmy(d[0])}.${d[0].slice(0,4)}`).join(', ')}. משיכה: ${ils(X.withdrawn)}. עמלות עד היום: ${ils(X.fees)}. מחיר נכון ל-${dmy(coins[0].priceAt)}.${coins[0].priceAt.slice(0,4)}. מקור: ${esc(X.source)}.</p>`;
+      <p class="small" style="margin:12px 0 0">הפקדות: ${X.deposits.map(d=>`${ils(d[1])} ב-${dmy(d[0])}.${d[0].slice(0,4)}`).join(', ')}. משיכה: ${ils(X.withdrawn)}. עמלות עד היום: ${ils(X.fees)}. המחיר בדולר הוא המחיר ששולם בשקלים, לפי שער הדולר של אותו יום (${esc(X.fx_source)}). מחיר נכון ל-${dmy(coins[0].priceAt)}.${coins[0].priceAt.slice(0,4)}. מקור: ${esc(X.source)}.</p>`;
   }
   const A=I.agent;
   $('#invAgent').innerHTML=A?`<div class="lab small">${esc(A.role)}</div><b>${esc(A.name)}</b> · <a href="tel:${esc(A.phone.replace(/-/g,''))}" dir="ltr">${esc(A.phone)}</a>`:'';
